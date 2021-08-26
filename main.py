@@ -37,6 +37,7 @@ statecnt=0
 pos=(40,40)
 direction=board._LEFT
 level=0
+lives=5 #lives implemented
 print(LM.getLevelsNo()-1)
 while 1:
     cmd=myInput.getInput(layers)
@@ -48,16 +49,18 @@ while 1:
     vh.drawStats(stats)
     vh.renderObjects(changedBoxes)
     if stats[4]<=0:
-
         if myPlayground.exitAchived==True: 
             if level<LM.getLevelsNo()-1:
                 level+=1
             else:
                 sys.exit()
         else:
-            pass  
-
+            lives-=1
+            if lives<=0:
+                sys.exit()  
+#        board.boardMember.players=-1
         myPlayground=LM.createBoardObject(level)
+
     pygame.display.flip()
     time.sleep(1 / 40)
     statecnt-=1

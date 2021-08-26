@@ -42,7 +42,9 @@ class boardMember():
     steppingOn=None #default empty object is the object the playaye stands on
     steppable=False
     instanceNo=0
+    players=-1
     canShoot=0
+    killed=0  #killed counter - used to detect if element is killed and for die animation
     type = EMPTYELEMENT
     direction = 0
     animPhase = 0
@@ -112,6 +114,8 @@ class boardMember():
     def tick(self):
         self.__cntA=(self.__cntA+1) % self.animSpeed
         if self.__cntA==0:
+            if self.killed>0:
+                self.killed-=1
             if self.inPorting:
                 self.inPorting-=1
                 self.changed=True
@@ -198,7 +202,8 @@ class boardMember():
         self.magnetic =True
         self.canCollect =True
         self.objCollection =None
-
+        boardMember.players+=1
+        self.instanceNo=boardMember.players
     def box(self):
        # if self.subType==0:
        #     self.steppable=True
@@ -238,7 +243,8 @@ class board():
         for x in range(0,size[0]):
             for y in range(0,size[1]):
                 self.playground[x][y].steppingOn=boardMember()
-
+        boardMember.players=-1
+        boardMember.instanceNo=-1
         
 
         
@@ -314,9 +320,6 @@ class board():
         if not member:
             return
         self.playground[x][y]=boardMember(member[0],member[1],member[2],member[3])
-        if member[0]==PLAYER:
-            self.playground[x][y].instanceNo=self.players
-            self.players+=1
         self.playground[x][y].steppingOn=boardMember(EMPTYELEMENT)
 
 
@@ -358,14 +361,16 @@ class board():
                 elif self.smell[x][y][1]==1:
                     self.smell[x][y]=(0,0)
       #if the object recently moved, we do not move it again for a while, but decrease the counter
-                if self.playground[x][y].moved==0 and self.playground[x][y].outPorting==0 and self.playground[x][y].inPorting==0:    
+                if self.playground[x][y].moved==0 and self.playground[x][y].outPorting==0 and self.playground[x][y].inPorting==0 and self.playground[x][y].killed==0:    
                     elementMech =switch.get(self.playground[x][y].type)
                     elementMech(x, y,command)
         #take care of all these counters
-                if self.playground[x][y].outPorting==1: #last frame, the object must go
+                if self.playground[x][y].outPorting==1 or self.playground[x][y].killed==1: #last frame, the object must go
                     self.restoreObject(x,y)
                     self.playground[x][y].changed=True
                     self.playground[x][y].outPorting=0
+                    self.playground[x][y].killed=0
+
                                 
 
 
@@ -509,6 +514,8 @@ class board():
     def killObject(self,x,y,time_=4):
         if not self.playground[x][y].destructable:
             return
+        if self.playground[x][y].killed>0: #element is already killed
+            return 
        # if self.playground[x][y].type==EMPTYELEMENT:
        #     self.playground[x][y].type=BOX
         if self.playground[x][y].type==BOMB: 
@@ -516,8 +523,8 @@ class board():
                 self.playground[x][y].shot=6
         else:    
             self.playground[x][y].type=BOX
-            #we set only outporting, outporting should do the trick
-            self.playground[x][y].outPorting=time_
+            #we set only killed, it should do the trick
+            self.playground[x][y].killed=time_
             self.playground[x][y].collectible=False
             self.playground[x][y].movable=False
             self.playground[x][y].steppable=False
@@ -617,7 +624,7 @@ class board():
     def openDoor(self,x,y,x1,y1):
         if not self.playground[x][y].objCollection:
             return False
-        if self.playground[x][y].inPorting>0 or self.playground[x][y].outPorting>0:
+        if self.playground[x][y].inPorting>0 or self.playground[x][y].killed>0:
             return False
         type_= self.playground[x1][y1].subType   
         for obj in self.playground[x][y].objCollection:
@@ -719,10 +726,10 @@ class board():
             moved=self.monsterPlayerDetected(x,y,player)
             if moved==True:
                 return
-        neighs=self.findNeighboors(x,y)
-        for e in neighs:
-            if e[2].type==PLAYER:
-                self.killObject(e[0],e[1])
+#        neighs=self.findNeighboors(x,y)
+#        for e in neighs:
+#            if e[2].type==PLAYER:
+#                self.killObject(e[0],e[1])
         coin=random.randint(0,10)
         direction=self.playground[x][y].direction
         if direction==_UP:
@@ -775,21 +782,20 @@ class board():
 
     def player(self, x, y,cmd_):
         self.smell[x][y]=(PLAYER,100)
-        if not cmd_:
-            return
-        if not cmd_[self.playground[x][y].instanceNo]:
-            return
-
-          
         neigh=self.findNeighboors(x,y)
         for n in neigh:
             if n[2].canKill==True:
                 self.killObject(x,y)
                 return
-
+        if not cmd_:
+            return
+        if not cmd_[self.playground[x][y].instanceNo]:
+            return
         cmdTupple=cmd_[self.playground[x][y].instanceNo]        
+        print("{} {}".format(cmdTupple[1],self.playground[x][y].instanceNo+1))
         cmd=cmdTupple[0]
-        if cmdTupple[1] & (self.playground[x][y].instanceNo +1 )>0:
+        if cmdTupple[1]>0 and self.playground[x][y].instanceNo +1>0:
+            print(cmdTupple)
             if self.playground[x][y].shooting==0:
                 self.shootFromObject(x,y,cmdTupple)
                 self.playground[x][y].shooting=15
@@ -960,7 +966,7 @@ class board():
                 elem=self.playground[x][y]
                 if elem.direction==None:
                     elem.direction=_UP
-                result.append((x,y,elem.type,elem.direction,elem.animPhase,elem.subType,self.smell[x][y],elem.outPorting,elem.inPorting))
+                result.append((x,y,elem.type,elem.direction,elem.animPhase,elem.subType,self.smell[x][y],elem.outPorting,elem.inPorting,elem.killed))
         return result
 
 

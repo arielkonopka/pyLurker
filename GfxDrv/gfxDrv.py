@@ -70,6 +70,7 @@ class videoManager:
         self.monster=skinMngr.getObj('monster')
         self.exit=skinMngr.getObj('exit')
         self.teleport=skinMngr.getObj('teleport')
+        self.dying=skinMngr.getObj('elementDie')
 
 
         #load the texture file first
@@ -124,7 +125,7 @@ class videoManager:
 #            0          1               2               3        4               5             6
 #(x,y),elem.type,elem.direction,elem.animPhase,elem.subType,self.smell[x][y],elem.outPorting,elem.inPorting))
     def drawBasicElement(self,position,objectType,animPatt):
-        if objectType[5] >0 or objectType[6]>0:
+        if objectType[5] >0 or objectType[6]>0 or objectType[7]>0:
             #teleportation
             if objectType[5]>0:
                 #portIn
@@ -134,6 +135,10 @@ class videoManager:
                 #portout
                 xPos=self.teleportOut[objectType[6]%len(self.teleportOut)][0]
                 yPos=self.teleportOut[objectType[6]%len(self.teleportOut)][1]
+            if objectType[7]>0:
+                #portout
+                xPos=self.dying[objectType[7]%len(self.dying)][0]
+                yPos=self.dying[objectType[7]%len(self.dying)][1]    
         else:
             sdirection=None
             if not animPatt:
@@ -205,7 +210,7 @@ class videoManager:
                 posy=(y-vUY)*self.__IconHeight+bPY
                # print((posx,posy),(obj[2],obj[3],obj[4]))
                #(x,y,elem.type,elem.direction,elem.animPhase,elem.subType,self.smell[x][y])
-                self.drawObjectOnScreen((posx,posy),(obj[2],obj[3],obj[4],obj[5],obj[6],obj[7],obj[8]))
+                self.drawObjectOnScreen((posx,posy),(obj[2],obj[3],obj[4],obj[5],obj[6],obj[7],obj[8],obj[9]))
 
 
     def drawStats(self,stats):

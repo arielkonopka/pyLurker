@@ -73,7 +73,8 @@ class lvlManger():
             'd':self.makeDoor,
             '7':self.makeKey,
             'X':self.makeExit,
-            'T':self.makeTeleport
+            'T':self.makeTeleport,
+            't':self.makeTeleport
             }
         objType=switch.get(marker)
         if objType:
@@ -82,7 +83,10 @@ class lvlManger():
             return self.makeEmpty(None)   
 
     def makeTeleport(self,marker):
-        return(board.TELEPORT,0,0,False)
+        if marker=='T':
+            return(board.TELEPORT,0,0,False)
+        else:
+            return(board.TELEPORT,0,1,False)
 
     def makeMonster(self,marker):
         monsterList=['M','m','N','n']

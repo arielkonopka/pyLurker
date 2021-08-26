@@ -6,13 +6,14 @@
     "Interlace":2,
     "Textures":
     {
-        "TextureFile":"/home/c/PycharmProjects/pythonProject/Data/textures/icons32.png",
+        "TextureFile":"/home/c/dev/pyLurker/Data/textures/icons32.png",
         "LightsFile": ""
     },
     "Shapes":{
         "comment":"Directions:left,up,right,down->subtupes->animPhases",
         "teleportIn":[[4,7],[3,7],[2,7],[1,7],[0,7]],
         "teleportOut":[[0,7],[1,7],[2,7],[3,7],[4,7]],
+        "elementDie":[[0,7],[1,7],[2,7],[3,7],[4,7]],
         "player":[[[[4,5],[5,5]]],[[[6,5],[7,5]]],[[[0,5],[1,5]]],[[[2,5],[3,5]]]],
         "wall":[[[[2,0]],[[3,0]]]],
         "bomb":[[[[8,0]],[[7,6]]]],

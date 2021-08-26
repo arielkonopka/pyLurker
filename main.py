@@ -9,10 +9,10 @@ from Board import board as board
 from InputHandler import inputHandler as ih
 from pygame import surface
 
-LM=lvlM.lvlManger('/home/c/PycharmProjects/pythonProject/LevelData/Levels.json')
+LM=lvlM.lvlManger('./LevelData/Levels.json')
 myPlayground=LM.createBoardObject(0)
 
-SM=gfxDrv.skinManager('/home/c/PycharmProjects/pythonProject/Data/skins/skin.json')
+SM=gfxDrv.skinManager('./Data/skins/skin.json')
 
 
 myPlayground.iterateMech(None)

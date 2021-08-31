@@ -1,6 +1,19 @@
 from LevelManager import *
 import random
+'''
+This file contains two classes and handfull of constant values.
+The classes are related to the game play board and are:
+* boardMember
+* board
+
+
+
+'''
+
+
 # board member types
+
+
 
 EMPTYELEMENT = 0
 PLAYER = -1
@@ -9,23 +22,32 @@ BOX = 10
 
 # blasters and lasers are done with subtype and rotatable fields
 TURRET = 20
-
+# magnetic Field generator
 MAGNET = 30
+# moving and shooting objects
 TANK = 40
-
+# tokens to be collected
 TOKEN=120
 BOMB = 50
 AMMO = 60
 MISSILE=110
+# different subtipes of keys match different subtypes of doors
 KEY = 70
 DOOR = 80
+# different subtypes of teleports connect to different type of a teleport.
 TELEPORT = 90
+# monsters all classes
 MONSTER = 100
+# exit, subclass 0 is inactive, subclass 1 is active
 EXIT = 130
+# this a class of objects containing other objects. for them the collect routine must be adjusted
+STASH =140
 
+# constant values
 _DEFAULTAMMOUNT = 12
 
 _PortingTime = 8
+_KillingTime = 8
 
 _MOD1=1
 _MOD2=2
@@ -35,14 +57,26 @@ _LEFT = 0
 _UP = 1
 _RIGHT = 2
 _DOWN = 3
-_NEUTRAL = 4
+
+
+
 
 class boardMember():
+    '''
+    boardMember class
+        This is a class that let's using board members easy. Some methods are built in like:
+        * various timers support
+        * kill, restore, demolish methods
+
+        Every object in the game board is a boardMember object     
+    '''
+
     justTurned=False
     steppingOn=None #default empty object is the object the playaye stands on
     steppable=False
     instanceNo=0
     players=-1
+    playerNo=0
     canShoot=0
     killed=0  #killed counter - used to detect if element is killed and for die animation
     type = EMPTYELEMENT
@@ -61,13 +95,15 @@ class boardMember():
     objCollection:[] = []
     subType = 0
     rotatable = False
-    destructable = True
+    destructable = False
     collectible = False
     #teleporting in and out 
     inPorting = 0
     outPorting = 0
     canKill=False
-
+    canTeleport=False
+    canOpenDoors=False
+    canPushObjects=False
     #we need a 'smart' support for this
     #when the object is created, it is in changed state - which means it would be rendered
     #but when nothing is happening, the object should be set to False
@@ -106,21 +142,109 @@ class boardMember():
         self.direction = direction
         self.rotatable = rotatable
         self.changed=True
+        self.canTeleport=False
+        self.canOpenDoors=False
+        self.canPushObjects=False
+        self.steppable=False
+        self.demolished=0
+        self.destructable=True
         elementInit = switch.get(self.type)
         elementInit()
-    
 
+
+    def restoreElement(self):
+        print("{}".format(self.type))
+        if self.steppingOn==None: # empty? fix let's fix that first
+            self.steppingOn=boardMember(EMPTYELEMENT)
+            self.steppingOn.steppingOn=boardMember(EMPTYELEMENT)
+        self.type=self.steppingOn.type
+        self.killable=self.steppingOn.killable
+        self.animPhase=0
+        self.animSpeed=self.steppingOn.animSpeed
+        self.canCollect=self.steppingOn.canCollect
+        self.canKill=self.steppingOn.canKill
+        self.canShoot=self.steppingOn.canShoot
+        self.changed=True
+        self.collectible=self.steppingOn.collectible
+        self.destructable=self.steppingOn.destructable
+        self.direction=self.steppingOn.direction
+        self.instanceNo=self.steppingOn.instanceNo
+        self.playerNo=self.playerNo
+        self.inPorting=self.steppingOn.inPorting
+        self.killable=self.steppingOn.killable
+        self.killed=self.steppingOn.killed
+        self.magnetic=self.steppingOn.magnetic
+        self.movable=self.steppingOn.movable
+        self.objCollection=self.steppingOn.objCollection
+        self.outPorting=self.steppingOn.outPorting
+        self.subType=self.steppingOn.subType
+        self.canPushObjects=self.steppingOn.canPushObjects
+        self.canOpenDoors=self.steppingOn.canOpenDoors
+        self.canTeleport=self.steppingOn.canTeleport
+        self.steppable=self.steppingOn.steppable                #since it was already stepped on, no reason to copy the value
+        #end the last bot not least, we can have a list of stepped on objects, and we do not want to forget it
+        self.steppingOn=self.steppingOn.steppingOn
+
+    def kill(self,time_=_KillingTime):
+        if self.killed>0 or self.killable==False:
+            return False
+        if self.type==BOMB and self.shot==0:
+            self.shot=2
+            return True
+        if self.shot==1:
+            self.movable=False
+            self.canKill=False #this is very important, will the burning remains of an object be able to kill?
+            self.canShoot=False
+            self.canOpenDoors=False
+            self.killed=time_
+            self.collectible=False
+            self.steppable=False
+            self.animPhase=0
+            self.changed=True
+        return False
+
+    
+    def demolish(self,time_=_KillingTime):
+        if self.destructable==False or self.demolished>0:
+            return False
+        if self.type==BOMB and self.shot==0:
+            self.shot=8
+            return True
+        self.type=BOX
+        self.demolished=time_
+        self.movable=False
+        self.canKill=False #this is very important, will the burning remains of an object be able to kill?
+        self.canShoot=False
+        self.canOpenDoors=False
+        self.killed=time_
+        self.collectible=False
+        self.steppable=False
+        self.animPhase=0
+        self.changed=True
+        return True
 
     def tick(self):
         self.__cntA=(self.__cntA+1) % self.animSpeed
         if self.__cntA==0:
-            if self.killed>0:
+            #get the demolished animation and state done
+            if self.demolished>0:
+                self.demolished-=1
+                self.changed=True
+                if self.demolished==0:
+                    self.restoreElement()       
+            #get the killed animation and state done
+            if self.killed>0: 
                 self.killed-=1
+                if self.killed==0:
+                    self.restoreElement()
+                self.changed=True
             if self.inPorting:
                 self.inPorting-=1
                 self.changed=True
             if self.outPorting>0:
                 self.outPorting-=1
+                if self.outPorting==0:
+                    self.restoreElement()
                 self.changed=True
             if self.type!=PLAYER:
                 self.animPhase=(self.animPhase+1) % 65535
@@ -143,10 +267,11 @@ class boardMember():
         self.subType=0
         self.collectible=False
         self.movable=True
-
+        self.steppingOn=boardMember(EMPTYELEMENT)
+        
     def token(self):
         self.collectible=True
-
+        self.steppingOn=boardMember(EMPTYELEMENT)
 
     # we now define standard settings for each object type
     def empty(self):
@@ -161,17 +286,20 @@ class boardMember():
 
     def door(self):
         self.destructable =True
-
+        self.steppingOn=boardMember(EMPTYELEMENT)
     #it is similar to door, can be destroyed in an exlosion, but cannot be shot
     def teleport(self):
         self.destructable=True
         self.steppable=False
         self.killable=False
         self.collectible=False
+        self.steppingOn=boardMember(EMPTYELEMENT)
 
     def missile(self):
         self.movable=True
         self.destructable=True
+        self.killable=True
+        self.steppingOn=boardMember(EMPTYELEMENT)
     #now magnet is like a wall, cannot be destroyed and so on
     def magnet(self):
         pass
@@ -180,35 +308,44 @@ class boardMember():
         self.killable=True
         self.destructable=True
         self.movable=True
-
+        self.steppingOn=boardMember(EMPTYELEMENT)
     def turret(self):
         self.canShoot=True
         self.destructable =True
-     
+        self.steppingOn=boardMember(EMPTYELEMENT)
+
     def monster(self):
         self.canKill=True
         self.destructable=True
         self.killable=True
-
+        self.movable=True
+        self.steppingOn=boardMember(EMPTYELEMENT)
 
     def tank(self):
         # we inherit some setup from the turret
         self.turret()
         self.movable =True
+        self.steppingOn=boardMember(EMPTYELEMENT)
 
     def player(self):
+        self.canTeleport=True
+        self.canOpenDoors=True
+        self.canPushObjects=True
         self.movable =True
         self.killable =True
         self.magnetic =True
         self.canCollect =True
         self.objCollection =None
         boardMember.players+=1
-        self.instanceNo=boardMember.players
+        self.playerNo=boardMember.players
+        self.steppingOn=boardMember(EMPTYELEMENT)
+        self.movable=True
     def box(self):
        # if self.subType==0:
        #     self.steppable=True
         self.movable =True
         self.destructable =True
+        self.steppingOn=boardMember(EMPTYELEMENT)
 
     def ammo(self):
         self.destructable =True
@@ -216,11 +353,13 @@ class boardMember():
         self.magnetic =True
         self.collectible=True
         self.shots =_DEFAULTAMMOUNT
+        self.steppingOn=boardMember(EMPTYELEMENT)
 
     def key(self):
         self.destructable =True
         self.magnetic =True
         self.collectible=True
+        self.steppingOn=boardMember(EMPTYELEMENT)
 
 
 
@@ -244,7 +383,7 @@ class board():
             for y in range(0,size[1]):
                 self.playground[x][y].steppingOn=boardMember()
         boardMember.players=-1
-        boardMember.instanceNo=-1
+        boardMember.playerNo=-1
         
 
         
@@ -347,11 +486,14 @@ class board():
                   EXIT:self.exit
                 
                  }
-  #      print(self.smell)         
-        # here we launch all the methods that are supposed to be run during mechanics update
+   
+        # here we launch all the methods that are supposed to be run during mechanics update on a boardMember level
+        # like timers, animation phases, outporting and killing of objects, restoring objects
+        # consider this a timer tick
         for x in range(0,self.sizeX):
             for y in range(0,self.sizeY):
                 self.playground[x][y].tick()
+        # smell degrading, we want the smell of the objects to degrade with time
         for x in range(0 ,self.sizeX):
             for y in range(0 ,self.sizeY):
 #decrease the smell of objects. Do not worry, the objects that smell will create new signal
@@ -360,16 +502,11 @@ class board():
                     self.smell[x][y]=(self.smell[x][y][0],self.smell[x][y][1]-1)
                 elif self.smell[x][y][1]==1:
                     self.smell[x][y]=(0,0)
-      #if the object recently moved, we do not move it again for a while, but decrease the counter
+      # if the object recently moved, is in or out porting od dying, we do not move it again for a while
                 if self.playground[x][y].moved==0 and self.playground[x][y].outPorting==0 and self.playground[x][y].inPorting==0 and self.playground[x][y].killed==0:    
                     elementMech =switch.get(self.playground[x][y].type)
                     elementMech(x, y,command)
         #take care of all these counters
-                if self.playground[x][y].outPorting==1 or self.playground[x][y].killed==1: #last frame, the object must go
-                    self.restoreObject(x,y)
-                    self.playground[x][y].changed=True
-                    self.playground[x][y].outPorting=0
-                    self.playground[x][y].killed=0
 
                                 
 
@@ -400,9 +537,10 @@ class board():
         self.playground[x1][y1].direction=self.playground[x][y].direction
         #we keep robot instance id, that will help us keep the controller
         self.playground[x1][y1].instanceNo=self.playground[x][y].instanceNo
+        self.playground[x1][y1].playerNo=self.playground[x][y].playerNo
+
         #we want to take the keys and other collectibles with us
         self.playground[x1][y1].objCollection=self.playground[x][y].objCollection
-
         self.playground[x1][y1].steppingOn=step
         self.playground[x1][y1].inPorting=_PortingTime
         self.playground[x][y].outPorting=_PortingTime
@@ -468,24 +606,9 @@ class board():
             self.playground[fromPos[0]][fromPos[1]].objCollection.append(self.playground[toPos[0]][toPos[1]])
         else:
              self.playground[fromPos[0]][fromPos[1]].objCollection= [self.playground[toPos[0]][toPos[1]]]
-        self.playground[toPos[0]][toPos[1]]=boardMember(EMPTYELEMENT)
+        self.playground[toPos[0]][toPos[1]]=self.playground[toPos[0]][toPos[1]].steppingOn
         self.playground[toPos[0]][toPos[1]].changed=True
-        newCollection=[]
-        ammo=0
-        hits=True
-        #normalize ammo thing
-        while hits==True:
-            hits=False
-            for x in self.playground[fromPos[0]][fromPos[1]].objCollection:
-                if x.type==AMMO:
-                    hits=True
-                    ammo=ammo+x.shots
-                    self.playground[fromPos[0]][fromPos[1]].objCollection.remove(x)
-        if ammo>0:
-            am=boardMember(AMMO)
-            am.shots=ammo
-            newCollection.append(am)
-            self.playground[fromPos[0]][fromPos[1]].objCollection.append(am)  
+
 
     def moveObj(self,posFrom,posTo,direction,speed=3):
             self.playground[posFrom[0]][posFrom[1]],self.playground[posTo[0]][posTo[1]],self.playground[posTo[0]][posTo[1]].steppingOn=self.playground[posFrom[0]][posFrom[1]].steppingOn,self.playground[posFrom[0]][posFrom[1]],self.playground[posTo[0]][posTo[1]] 
@@ -506,30 +629,9 @@ class board():
         newMember.steppingOn,self.playground[x][y]=self.playground[x][y],newMember
         
     def restoreObject(self,x,y):
-        if self.playground[x][y].steppingOn:
-            self.playground[x][y]=self.playground[x][y].steppingOn
-        else:    
-            self.playground[x][y]=boardMember()
+        self.playground[x][y].restoreElement()
 
-    def killObject(self,x,y,time_=4):
-        if not self.playground[x][y].destructable:
-            return
-        if self.playground[x][y].killed>0: #element is already killed
-            return 
-       # if self.playground[x][y].type==EMPTYELEMENT:
-       #     self.playground[x][y].type=BOX
-        if self.playground[x][y].type==BOMB: 
-            if self.playground[x][y].shot==0:
-                self.playground[x][y].shot=6
-        else:    
-            self.playground[x][y].type=BOX
-            #we set only killed, it should do the trick
-            self.playground[x][y].killed=time_
-            self.playground[x][y].collectible=False
-            self.playground[x][y].movable=False
-            self.playground[x][y].steppable=False
-            self.playground[x][y].animPhase=0
-            self.playground[x][y].changed=True
+ 
 
     def checkAmmo(self,x,y):
         if not self.playground[x][y].objCollection:
@@ -568,27 +670,27 @@ class board():
             if self.playground[x][y-1].steppable==True:
                 self.createOverObject(x,y-1,MISSILE,_UP)
             elif self.playground[x][y-1].killable==True:
-                self.killObject(x,y-1)    
+                self.playground[x][y-1].kill()
             #shoot up
         elif direction==_DOWN and y<self.sizeY-1:
             if self.playground[x][y+1].steppable==True:
                 self.createOverObject(x,y+1,MISSILE,_DOWN)
             elif self.playground[x][y+1].killable==True:
-                self.killObject(x,y+1)    
+                self.playground[x][y+1].kill()   
 
             #shoot down
         elif direction==_LEFT and x>0:
             if self.playground[x-1][y].steppable==True:
                 self.createOverObject(x-1,y,MISSILE,_LEFT)
             elif self.playground[x-1][y].killable==True:
-                self.killObject(x-1,y)    
+                self.playground[x-1][y].kill()  
 
             #shoot Left
         elif direction==_RIGHT and x<self.sizeX-1:
             if self.playground[x+1][y].steppable==True:
                 self.createOverObject(x+1,y,MISSILE,_RIGHT)
             elif self.playground[x+1][y].killable==True:
-                self.killObject(x+1,y)    
+                self.playground[x+1][y].kill()    
             
 
     def missile(self,x,y,cmd_):
@@ -611,10 +713,14 @@ class board():
         if target.steppable==True:
             self.moveObj((x,y),(targetX,targetY),myself.direction)
         elif target.killable==True:
-            self.restoreObject(x,y)
-            self.killObject(targetX,targetY)
+            self.playground[x][y].restoreElement()
+            self.playground[targetX][targetY].kill()
         else:
-            self.killObject(x,y)
+    
+            self.playground[x][y].demolish() 
+            #we kill the messile, if it cannot move any further
+        
+
     def checkKeys(self,x,y,type=0):
         if self.playground[x][y].objCollection:
             for obj in self.playground[x][y].objCollection:
@@ -630,10 +736,108 @@ class board():
         for obj in self.playground[x][y].objCollection:
             if obj.type==KEY and obj.subType==type_:
                 self.playground[x][y].objCollection.remove(obj)
-                self.killObject(x1,y1,2)
+                self.playground[x1][y1].demolish() # doors are not killable and this trick would not work with them
+                                                 # we could simply make them steppable, and make mosters not see through them
+                                                 # thing to consider later 
                 return True
         return False
-    
+
+    def walkObjectDirection(self,x,y,direction):
+        """
+        Walk an object in direction.
+        This checks couple of variables, if object can move, teleport, open doors, push objects or collect other objects it checks it if is a player, and then it is allowed to go to the exit
+        """
+        if self.playground[x][y].movable==False:
+            return
+        self.playground[x][y].direction=direction
+        if direction==_UP and y>0:
+            if self.playground[x][y-1].steppable==True:
+                self.moveObj((x,y),(x,y-1),_UP)
+                return True
+            elif self.playground[x][y-1].type==TELEPORT and self.playground[x][y].canTeleport==True:
+                self.teleportObject(x,y,x,y-1)
+                return True
+            elif self.playground[x][y-1].type==EXIT and self.playground[x][y-1].subType==1 and self.playground[x][y].type==PLAYER:
+                self.collect((x,y-1),(x,y))
+                self.exitAchived=True
+                return True
+            elif self.playground[x][y-1].movable==True and y>1 and self.playground[x][y-2].steppable==True and self.playground[x][y].canPushObjects==True:
+                self.pushObject((x,y),(x,y-1),(x,y-2),_UP)
+                return True
+            elif self.playground[x][y-1].collectible==True and self.playground[x][y].canCollect==True:
+                    self.collect((x,y),(x,y-1))
+                    self.moveObj((x,y),(x,y-1),_UP)
+                    return True
+            elif y>1 and self.playground[x][y-1].type==DOOR and self.playground[x][y].canOpenDoors==True:
+                self.openDoor(x,y,x,y-1)
+                return True
+        if direction==_DOWN and y<self.sizeY-1:
+          #  print(">{}".format(cmd))
+            if self.playground[x][y+1].steppable==True:
+                self.moveObj((x,y),(x,y+1),_DOWN)
+                return True
+            elif self.playground[x][y+1].type==TELEPORT and self.playground[x][y].canTeleport==True:
+                self.teleportObject(x,y,x,y+1)
+                return True
+            elif self.playground[x][y+1].type==EXIT and self.playground[x][y+1].subType==1 and self.playground[x][y].type==PLAYER:
+                self.collect((x,y+1),(x,y))
+                self.exitAchived=True
+                return True
+            elif self.playground[x][y+1].movable==True and y<self.sizeY-2 and self.playground[x][y+2].steppable==True and self.playground[x][y].canPushObjects==True:
+                self.pushObject((x,y),(x,y+1),(x,y+2),_DOWN)
+                return True
+            elif self.playground[x][y+1].collectible==True and self.playground[x][y].canCollect==True:
+                self.collect((x,y),(x,y+1))
+                self.moveObj((x,y),(x,y+1),_DOWN)
+                return True
+            if y<self.sizeY-2 and self.playground[x][y+1].type==DOOR and self.playground[x][y].canOpenDoors==True:
+                self.openDoor(x,y,x,y+1)
+                return True
+        if direction==_LEFT and x>0:
+            if  self.playground[x-1][y].steppable==True:
+                self.moveObj((x,y),(x-1,y),_LEFT)
+                return True
+            elif self.playground[x-1][y].type==TELEPORT and self.playground[x][y].canTeleport==True:
+                self.teleportObject(x,y,x-1,y)
+                return True
+            elif self.playground[x-1][y].type==EXIT and self.playground[x-1][y].subType==1 and self.playground[x][y].type==PLAYER:
+                self.collect((x-1,y),(x,y))
+                self.exitAchived=True
+                return True
+            elif self.playground[x-1][y].movable==True and x>1 and self.playground[x-2][y].steppable==True and self.playground[x][y].canPushObjects==True:
+                self.pushObject((x,y),(x-1,y),(x-2,y),_LEFT)
+            elif self.playground[x-1][y].collectible==True and self.playground[x][y].canCollect==True:
+                self.collect((x,y),(x-1,y))
+                self.moveObj((x,y),(x-1,y),_LEFT)
+                return True
+            elif x>2 and self.playground[x-1][y].type==DOOR and self.playground[x][y].canOpenDoors==True:
+                self.openDoor(x,y,x-1,y)
+                return True
+        if direction==_RIGHT and x<self.sizeX-1:
+            if self.playground[x+1][y].steppable==True:
+                self.moveObj((x,y),(x+1,y),_RIGHT)
+                return True
+            elif self.playground[x+1][y].type==TELEPORT and self.playground[x][y].canTeleport==True:
+                self.teleportObject(x,y,x+1,y)
+                return True
+            elif self.playground[x+1][y].type==EXIT and self.playground[x+1][y].subType==1 and self.playground[x][y].type==PLAYER:
+                self.collect((x+1,y),(x,y))
+                self.exitAchived=True
+                return True
+            elif self.playground[x+1][y].movable==True and x<self.sizeX-2 and self.playground[x+2][y].steppable==True and self.playground[x][y].canPushObjects==True:
+                self.pushObject((x,y),(x+1,y),(x+2,y),_RIGHT)
+            elif self.playground[x+1][y].collectible==True and self.playground[x][y].canCollect==True:
+                self.collect((x,y),(x+1,y))
+                self.moveObj((x,y),(x+1,y),_RIGHT)
+                return True
+            elif x<self.sizeX-2 and self.playground[x+1][y].type==DOOR and self.playground[x][y].canOpenDoors==True:
+                self.openDoor(x,y,x+1,y)    
+                return True
+        return False
+
+
+
+
     def monsterPlayerDetected(self,x,y,player):
         px=player[0]
         py=player[1]
@@ -709,7 +913,11 @@ class board():
         if self.playground[x][y].subType<2:
             self.monsterVision(x,y,cmd_,detectedSmell)
 
-        
+    def monsterWalkDirection(self,x,y,directionList):
+        for direction in directionList:
+            if self.walkObjectDirection(x,y,direction)==True:
+                return True
+        return False
 
 #here we will contain the monster logic
     def monsterVision(self,x,y,cmd_,detectedSmell=(0,0)):
@@ -726,156 +934,45 @@ class board():
             moved=self.monsterPlayerDetected(x,y,player)
             if moved==True:
                 return
-#        neighs=self.findNeighboors(x,y)
-#        for e in neighs:
-#            if e[2].type==PLAYER:
-#                self.killObject(e[0],e[1])
-        coin=random.randint(0,10)
-        direction=self.playground[x][y].direction
-        if direction==_UP:
-            if coin>6 and self.playground[x][y].justTurned==False:
-                if y>0 and y<self.sizeY-1 and x>0 and x<self.sizeX-1:
-                    if self.playground[x-1][y+1].steppable==False and self.playground[x+1][y+1].steppable==False and (self.playground[x-1][y].steppable==True or self.playground[x+1][y].steppable==True):
-                        self.monsterRandomTurn(x,y)
-                        return     
-            if y>0 and self.playground[x][y-1].steppable==True:
-                self.moveObj((x,y),(x,y-1),_UP,6)
-            else:
-                #we can't go up anymore
-               self.monsterRandomTurn(x,y)
-        if direction==_DOWN:
-            if coin>6 and y>0 and y<self.sizeY-1 and x>0 and x<self.sizeX-1 and self.playground[x][y].justTurned==False:
-                if self.playground[x-1][y-1].steppable==False and self.playground[x+1][y-1].steppable==False and (self.playground[x-1][y].steppable==True or self.playground[x+1][y].steppable==True):
-                    self.monsterRandomTurn(x,y)
-                    return     
+        for c in range(0,4): 
+            if self.walkObjectDirection(x,y, (self.playground[x][y].direction+c)%4)==True:
+                break
 
-            if y<self.sizeY-1 and self.playground[x][y+1].steppable==True:
-                self.moveObj((x,y),(x,y+1),_DOWN,6)
-            else:
-                #we can't go up anymore
-               self.monsterRandomTurn(x,y)
-        if direction==_LEFT:
-            if coin>6 and y>0 and y<self.sizeY-1 and x>0 and x<self.sizeX-1 and self.playground[x][y].justTurned==False:
-                if self.playground[x+1][y-1].steppable==False and self.playground[x+1][y+1].steppable==False and (self.playground[x][y-1].steppable==True or self.playground[x][y+1].steppable==True):
-                    self.monsterRandomTurn(x,y)
-                    return     
 
-            if x>0 and self.playground[x-1][y].steppable==True:
-                self.moveObj((x,y),(x-1,y),_LEFT,6)
-            else:
-                #we can't go up anymore
-               self.monsterRandomTurn(x,y)
-        if direction==_RIGHT:
-            if coin>6 and y>0 and y<self.sizeY-1 and x>0 and x<self.sizeX-1 and self.playground[x][y].justTurned==False:
-                if self.playground[x-1][y-1].steppable==False and self.playground[x-1][y+1].steppable==False and (self.playground[x][y-1].steppable==True or self.playground[x][y+1].steppable==True):
-                 self.monsterRandomTurn(x,y)
-                 return     
-            if x<self.sizeX-1 and self.playground[x+1][y].steppable==True:
-                self.moveObj((x,y),(x+1,y),_RIGHT,6)
-            else:
-                #we can't go up anymore
-               self.monsterRandomTurn(x,y)
-            
 
 
 
 
     def player(self, x, y,cmd_):
+        """
+        Player control routine (x,y,(leftControl(direction,mod),rightControl(direction,mod)))
+            It is quite simple, it adds smell to the smell matrix, 
+            * checks if player should be killed, if so, kills it
+            * checks if player shoots 
+
+        """
         self.smell[x][y]=(PLAYER,100)
         neigh=self.findNeighboors(x,y)
         for n in neigh:
             if n[2].canKill==True:
-                self.killObject(x,y)
+                self.playground[x][y].kill()
                 return
         if not cmd_:
             return
-        if not cmd_[self.playground[x][y].instanceNo]:
+        if not cmd_[self.playground[x][y].playerNo]:
             return
-        cmdTupple=cmd_[self.playground[x][y].instanceNo]        
-        print("{} {}".format(cmdTupple[1],self.playground[x][y].instanceNo+1))
+        cmdTupple=cmd_[self.playground[x][y].playerNo]        
         cmd=cmdTupple[0]
-        if cmdTupple[1]>0 and self.playground[x][y].instanceNo +1>0:
-            print(cmdTupple)
+        print("{} -> {}".format(cmd,self.playground[x][y].playerNo))
+        if cmdTupple[1]>0 and self.playground[x][y].playerNo +1>0:
             if self.playground[x][y].shooting==0:
                 self.shootFromObject(x,y,cmdTupple)
                 self.playground[x][y].shooting=15
                 self.playground[x][y].moved=5
             return
-        #teleportation
-        if self.playground[x][y].outPorting:
-            self.playground[x][y].moved,self.playground[x][y].outPorting=self.playground[x][y].outPorting,self.playground[x][y].outPorting-1
-            self.playground[x][y].subType=1
 
-            return
-        elif self.playground[x][y].inPorting:
-            self.playground[x][y].moved,self.playground[x][y].inPorting=self.playground[x][y].inPorting,self.playground[x][y].inPorting-1
-            self.playground[x][y].subType=2
-            return
-        self.playground[x][y].subType=0
-        if cmd==_UP and y>0:
-            if self.playground[x][y-1].steppable==True:
-                self.moveObj((x,y),(x,y-1),cmd)
-            elif self.playground[x][y-1].type==TELEPORT:
-                self.teleportObject(x,y,x,y-1)
-            elif self.playground[x][y-1].type==EXIT and self.playground[x][y-1].subType==1:
-                self.collect((x,y-1),(x,y))
-                self.exitAchived=True
-            elif self.playground[x][y-1].movable==True and y>1 and self.playground[x][y-2].steppable==True:
-                self.pushObject((x,y),(x,y-1),(x,y-2),_UP)
-            elif self.playground[x][y-1].collectible==True:
-                    self.collect((x,y),(x,y-1))
-                    self.moveObj((x,y),(x,y-1),cmd)
-            elif y>1 and self.playground[x][y-1].type==DOOR:
-                self.openDoor(x,y,x,y-1)
-
-        if cmd==_DOWN and y<self.sizeY-1:
-          #  print(">{}".format(cmd))
-            if self.playground[x][y+1].steppable==True:
-                self.moveObj((x,y),(x,y+1),_DOWN)
-            elif self.playground[x][y+1].type==TELEPORT:
-                self.teleportObject(x,y,x,y+1)
-            elif self.playground[x][y+1].type==EXIT and self.playground[x][y+1].subType==1:
-                self.collect((x,y+1),(x,y))
-                self.exitAchived=True
-            elif self.playground[x][y+1].movable==True and y<self.sizeY-2 and self.playground[x][y+2].steppable==True:
-                self.pushObject((x,y),(x,y+1),(x,y+2),_DOWN)
-            elif self.playground[x][y+1].collectible==True:
-                self.collect((x,y),(x,y+1))
-                self.moveObj((x,y),(x,y+1),_DOWN)
-            if y<self.sizeY-2 and self.playground[x][y+1].type==DOOR:
-                self.openDoor(x,y,x,y+1)
-        if cmd==_LEFT and x>0:
-            if  self.playground[x-1][y].steppable==True:
-                self.moveObj((x,y),(x-1,y),_LEFT)
-            elif self.playground[x-1][y].type==TELEPORT:
-                self.teleportObject(x,y,x-1,y)
-            elif self.playground[x-1][y].type==EXIT and self.playground[x-1][y].subType==1:
-                self.collect((x-1,y),(x,y))
-                self.exitAchived=True
-            elif self.playground[x-1][y].movable==True and x>1 and self.playground[x-2][y].steppable==True:
-                self.pushObject((x,y),(x-1,y),(x-2,y),_LEFT)
-            elif self.playground[x-1][y].collectible==True:
-                self.collect((x,y),(x-1,y))
-                self.moveObj((x,y),(x-1,y),_LEFT)
-            elif x>2 and self.playground[x-1][y].type==DOOR:
-                self.openDoor(x,y,x-1,y)
-        if cmd==_RIGHT and x<self.sizeX-1:
-            if self.playground[x+1][y].steppable==True:
-                self.moveObj((x,y),(x+1,y),_RIGHT)
-            elif self.playground[x+1][y].type==TELEPORT:
-                self.teleportObject(x,y,x+1,y)
-            elif self.playground[x+1][y].type==EXIT and self.playground[x+1][y].subType==1:
-                self.collect((x+1,y),(x,y))
-                self.exitAchived=True
-            elif self.playground[x+1][y].movable==True and x<self.sizeX-2 and self.playground[x+2][y].steppable==True:
-                self.pushObject((x,y),(x+1,y),(x+2,y),_RIGHT)
-            elif self.playground[x+1][y].collectible==True:
-                self.collect((x,y),(x+1,y))
-                self.moveObj((x,y),(x+1,y),_RIGHT)
-            elif x<self.sizeX-2 and self.playground[x+1][y].type==DOOR:
-                self.openDoor(x,y,x+1,y)    
-
-
+        self.walkObjectDirection(x,y,cmd)
+ 
       
       
     def token(self,x,y,cmd):
@@ -905,23 +1002,23 @@ class board():
     def bomb(self, x, y,cmd):
         if self.playground[x][y].shot==1:
             self.playground[x][y].type=BOX
-            self.killObject(x,y)
+            self.playground[x][y].demolish()
             if x>0 and self.playground[x-1][y].destructable==True:
-                self.killObject(x-1,y)
+                self.playground[x-1][y].demolish()
                 if y>0 and self.playground[x-1][y-1].destructable==True:
-                    self.killObject(x-1,y-1)
+                    self.playground[x-1][y-1].demolish()
                 if y<self.sizeY-1 and self.playground[x-1][y+1].destructable==True:
-                    self.killObject(x-1,y+1)                
+                    self.playground[x-1][y+1].demolish()                
             if x<self.sizeX+1:
-                self.killObject(x+1,y)
+                self.playground[x+1][y].demolish()
                 if y>0 and self.playground[x+1][y-1].destructable==True:
-                    self.killObject(x+1,y-1)
+                    self.playground[x+1][y-1].demolish()
                 if y<self.sizeY-1 and self.playground[x+1][y+1].destructable==True:
-                    self.killObject(x+1,y+1)                
+                    self.playground[x+1][y+1].demolish()
             if y>0 and self.playground[x][y-1].destructable==True:
-                self.killObject(x,y-1)
+                self.playground[x][y-1].demolish()
             if y<self.sizeY-1 and self.playground[x][y+1].destructable==True:
-                self.killObject(x,y+1)
+                self.playground[x][y+1].demolish()
 
         
 

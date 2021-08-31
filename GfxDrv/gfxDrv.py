@@ -71,7 +71,7 @@ class videoManager:
         self.exit=skinMngr.getObj('exit')
         self.teleport=skinMngr.getObj('teleport')
         self.dying=skinMngr.getObj('elementDie')
-
+        self.exploding=skinMngr.getObj('elementExplode')
 
         #load the texture file first
         self.__iconsTexture=pygame.image.load(textureFile)

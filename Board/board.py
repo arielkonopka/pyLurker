@@ -675,6 +675,7 @@ class board():
 #I should create a method step on, but here it would make things a bit weird
     def moveObj(self,posFrom,posTo,direction,speed=3):
             self.playground[posFrom[0]][posFrom[1]],self.playground[posTo[0]][posTo[1]],self.playground[posTo[0]][posTo[1]].steppingOn=self.playground[posFrom[0]][posFrom[1]].steppingOn,self.playground[posFrom[0]][posFrom[1]],self.playground[posTo[0]][posTo[1]] 
+            #this is a dirty fix, but should be fixed, sometimes steppingOn is None, that should not happen.
             if self.playground[posTo[0]][posTo[1]]==None:
                 self.playground[posTo[0]][posTo[1]]=boardMember()
             if self.playground[posFrom[0]][posFrom[1]]==None:

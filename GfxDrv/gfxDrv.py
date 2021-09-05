@@ -71,7 +71,8 @@ class videoManager:
         self.exit=skinMngr.getObj('exit')
         self.teleport=skinMngr.getObj('teleport')
         self.dying=skinMngr.getObj('elementDie')
-
+        self.exploding=skinMngr.getObj('elementExplode')
+        self.remains=skinMngr.getObj('remains')
 
         #load the texture file first
         self.__iconsTexture=pygame.image.load(textureFile)
@@ -107,7 +108,8 @@ class videoManager:
             board.DOOR:self.drawDoor,
             board.MONSTER:self.drawMonster,
             board.EXIT:self.drawExit,
-            board.TELEPORT:self.drawTeleport
+            board.TELEPORT:self.drawTeleport,
+            board.REMAINS:self.drawRemains
             }
 #        if objectType[0]!=board.EMPTYELEMENT and self.playground!=None:
 #            bg=  switcher.get(self.playground[position[0]][position[1]].steppingOn.Type)  
@@ -116,8 +118,8 @@ class videoManager:
         rect=(position[0],position[1],32,32)
         
         smell=objectType[4]
-        if smell[1]>0:
-            pygame.draw.rect(self.__srcHndl,(smell[1],smell[1],smell[1]),rect)
+     #   if smell[1]>0:
+     #       pygame.draw.rect(self.__srcHndl,(smell[1],smell[1],smell[1]),rect)
 
         if  drawFunc:
             drawFunc(position,objectType)
@@ -158,7 +160,8 @@ class videoManager:
     
     def drawTeleport(self,position,objectType):
         self.drawBasicElement(position,objectType,self.teleport)
-
+    def drawRemains(self,position,objectType):
+        self.drawBasicElement(position, objectType, self.remains)
     def drawMonster(self,position,objectType):
         self.drawBasicElement(position,objectType,self.monster)
     

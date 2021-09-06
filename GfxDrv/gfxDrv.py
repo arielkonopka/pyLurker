@@ -9,7 +9,7 @@ from pygame import surface
 from Board import board
 from pygame import draw
 from pygame import font
-
+from Board import board as board
 
 class skinManager:
     fname=None
@@ -90,9 +90,9 @@ class videoManager:
         self.__font=pygame.font.SysFont("Courier",40)
 
 
-    def drawObjectOnScreen(self,position,objectType):
+    def drawObjectOnScreen(self,position,bElement:board.boardMember,smell):
         #player-5th row
-        if not objectType:
+        if not bElement:
          #   print('no')
             return
         switcher={
@@ -114,87 +114,108 @@ class videoManager:
 #        if objectType[0]!=board.EMPTYELEMENT and self.playground!=None:
 #            bg=  switcher.get(self.playground[position[0]][position[1]].steppingOn.Type)  
         
-        drawFunc=switcher.get(objectType[0])
         rect=(position[0],position[1],32,32)
         
-        smell=objectType[4]
-     #   if smell[1]>0:
-     #       pygame.draw.rect(self.__srcHndl,(smell[1],smell[1],smell[1]),rect)
 
+        if smell[1]>0:
+            pygame.draw.rect(self.__srcHndl,(smell[1],smell[1],smell[1]),rect)
+        
+        # ok, object is stepping on other object, that is not an empty field? Draw it
+        if bElement.steppingOn!=None and bElement.steppingOn.type!=board.EMPTYELEMENT:
+            drawFunc=switcher.get(bElement.steppingOn.type)    
+            if  drawFunc:
+                drawFunc(position,bElement,True)
+    
+        drawFunc=switcher.get(bElement.type)
         if  drawFunc:
-            drawFunc(position,objectType)
+            drawFunc(position,bElement,False)
 #this routine is for still unmutable inanimated objects, but different types
 #            0          1               2               3        4               5             6
 #(x,y),elem.type,elem.direction,elem.animPhase,elem.subType,self.smell[x][y],elem.outPorting,elem.inPorting))
-    def drawBasicElement(self,position,objectType,animPatt):
-        if objectType[5] >0 or objectType[6]>0 or objectType[7]>0:
+    def drawBasicElement(self,position,bElement:board.boardMember,animPatt,subObj=False):
+        xPos=position[0]
+        yPos=position[1]
+        if subObj==False:
+            if  (bElement.inPorting >0 or bElement.outPorting>0 or bElement.killed>0):
             #teleportation
-            if objectType[5]>0:
-                #portIn
-                xPos=self.teleportIn[objectType[5]%len(self.teleportIn)][0]
-                yPos=self.teleportIn[objectType[5]%len(self.teleportIn)][1]
-            if objectType[6]>0:
+                if bElement.inPorting>0:
+                    #portIn
+                    xPos=self.teleportIn[bElement.inPorting%len(self.teleportIn)][0]
+                    yPos=self.teleportIn[bElement.inPorting%len(self.teleportIn)][1]
+                if bElement.outPorting>0:
+                    #portout
+                    xPos=self.teleportOut[bElement.outPorting%len(self.teleportOut)][0]
+                    yPos=self.teleportOut[bElement.outPorting%len(self.teleportOut)][1]
+                if bElement.killed>0:
                 #portout
-                xPos=self.teleportOut[objectType[6]%len(self.teleportOut)][0]
-                yPos=self.teleportOut[objectType[6]%len(self.teleportOut)][1]
-            if objectType[7]>0:
-                #portout
-                xPos=self.dying[objectType[7]%len(self.dying)][0]
-                yPos=self.dying[objectType[7]%len(self.dying)][1]    
+                    xPos=self.dying[bElement.killed%len(self.dying)][0]
+                    yPos=self.dying[bElement.killed%len(self.dying)][1]    
+            else:
+                sdirection=None
+                if not animPatt:
+                    return
+                if bElement.direction!=None: 
+                    sdirection=animPatt[bElement.direction % (len(animPatt))]
+                else:   
+                    sdirection=animPatt[0]
+           # print("{} -> {} ".format(objectType[3],len(sdirection) ))
+                sType=sdirection[bElement.subType % len(sdirection) ]
+                xPos=sType[bElement.animPhase % len(sType)][0]
+                yPos=sType[bElement.animPhase % len(sType)][1]
         else:
             sdirection=None
             if not animPatt:
                 return
-            if objectType[1]!=None: 
-                sdirection=animPatt[objectType[1] % (len(animPatt))]
+            if bElement.direction!=None: 
+                sdirection=animPatt[bElement.direction % (len(animPatt))]
             else:   
                 sdirection=animPatt[0]
            # print("{} -> {} ".format(objectType[3],len(sdirection) ))
-            sType=sdirection[objectType[3] % len(sdirection) ]
-            xPos=sType[objectType[2] % len(sType)][0]
-            yPos=sType[objectType[2] % len(sType)][1]
+            sType=sdirection[bElement.subType % len(sdirection) ]
+            xPos=sType[bElement.animPhase % len(sType)][0]
+            yPos=sType[bElement.animPhase % len(sType)][1]
         self.__srcHndl.blit(self.__iconsTexture,position,((self.__iconWidth+self.interlace)*xPos+self.interlace,
             (self.__IconHeight+self.interlace)*yPos+self.interlace,
             self.__iconWidth,
             self.__IconHeight))
     
-    def drawTeleport(self,position,objectType):
-        self.drawBasicElement(position,objectType,self.teleport)
-    def drawRemains(self,position,objectType):
-        self.drawBasicElement(position, objectType, self.remains)
-    def drawMonster(self,position,objectType):
-        self.drawBasicElement(position,objectType,self.monster)
+    def drawTeleport(self,position,bElement,subObj):
+        self.drawBasicElement(position,bElement,self.teleport,subObj)
+    def drawRemains(self,position,bElement,subObj):
+        self.drawBasicElement(position, bElement, self.remains,subObj)
+    def drawMonster(self,position,bElement,subObj):
+        self.drawBasicElement(position,bElement,self.monster,subObj)
     
-    def drawMissile(self,position,objectType):
-        self.drawBasicElement(position,objectType,self.missile)
+    def drawMissile(self,position,bElement,subObj):
+        self.drawBasicElement(position,bElement,self.missile,subObj)
 
-    def drawToken(self,position,objectType):
-        self.drawBasicElement(position,objectType,self.token)   
-    def drawKey(self,position,objectType):
-        self.drawBasicElement(position,objectType,self.key)   
-    def drawBox(self,position,objectType):
-        self.drawBasicElement(position,objectType,self.box)
+    def drawToken(self,position,bElement,subObj):
+        self.drawBasicElement(position,bElement,self.token,subObj)   
+    def drawKey(self,position,bElement,subObj):
+        self.drawBasicElement(position,bElement,self.key,subObj)   
+    def drawBox(self,position,bElement,subObj):
+        self.drawBasicElement(position,bElement,self.box,subObj)
 
-    def drawBomb(self,position,objectType):
-        self.drawBasicElement(position,objectType,self.bomb)
+    def drawBomb(self,position,bElement,subObj):
+        self.drawBasicElement(position,bElement,self.bomb,subObj)
 
-    def drawAmmo(self,position,objectType):
-        self.drawBasicElement(position,objectType,self.ammo)
+    def drawAmmo(self,position,bElement,subObj):
+        self.drawBasicElement(position,bElement,self.ammo,subObj)
 
-    def drawWall(self,position,objectType):
-        self.drawBasicElement(position,objectType,self.wall)
+    def drawWall(self,position,bElement,subObj):
+        self.drawBasicElement(position,bElement,self.wall,subObj)
 
 
-    def drawPlayer(self,position,objectType):
-        self.drawBasicElement(position,objectType,self.player)
-    def drawEmpty(self,position,objectType):
+    def drawPlayer(self,position,bElement,subObj):
+        self.drawBasicElement(position,bElement,self.player,subObj)
+    def drawEmpty(self,position,bElement,subObj):
         return
-        self.drawBasicElement(position,objectType,self.empty)
-    def drawDoor(self,position,objectType):
-        self.drawBasicElement(position,objectType,self.door)
+        self.drawBasicElement(position,bElement,self.empty,subObj)
+    def drawDoor(self,position,bElement,subObj):
+        self.drawBasicElement(position,bElement,self.door,subObj)
 
-    def drawExit(self,position,objectType):
-        self.drawBasicElement(position,objectType,self.exit)
+    def drawExit(self,position,bElement,subObj):
+        self.drawBasicElement(position,bElement,self.exit,subObj)
 
     def renderObjects(self,objlist):
         vUX:int=self.__viewUpperCorner[0]
@@ -211,9 +232,13 @@ class videoManager:
             if x<=bSX+vUX  and x>=vUX  and y<=vUY+bSY and y>=vUY:
                 posx=(x-vUX)*self.__iconWidth+bPX
                 posy=(y-vUY)*self.__IconHeight+bPY
+                elem=obj[2]
+                smell=obj[3]
+                self.drawObjectOnScreen((posx,posy),elem,smell)
+ 
                # print((posx,posy),(obj[2],obj[3],obj[4]))
                #(x,y,elem.type,elem.direction,elem.animPhase,elem.subType,self.smell[x][y])
-                self.drawObjectOnScreen((posx,posy),(obj[2],obj[3],obj[4],obj[5],obj[6],obj[7],obj[8],obj[9]))
+#                self.drawObjectOnScreen((posx,posy),(obj[2],obj[3],obj[4],obj[5],obj[6],obj[7],obj[8],obj[9]))
 
 
     def drawStats(self,stats):

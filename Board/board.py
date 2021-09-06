@@ -378,14 +378,14 @@ class boardMember():
         self.steppingOn=boardMember(EMPTYELEMENT)
 
     def monster(self):
-        self.canKill=False
+        self.canKill=True
         self.destructable=True
         self.killable=True
         self.movable=True
         self.steppingOn=boardMember(EMPTYELEMENT)
         self.canCollect=True
         if self.subType==1:
-            self.canTeleport=False
+            self.canTeleport=True
     def tank(self):
         # we inherit some setup from the turret
         self.turret()
@@ -407,7 +407,7 @@ class boardMember():
         self.movable=True
     def box(self):
        # if self.subType==0:
-       #     self.steppable=True
+        self.steppable=False
         self.movable =True
         self.destructable =True
         self.steppingOn=boardMember(EMPTYELEMENT)
@@ -570,6 +570,7 @@ class board():
         for x in range(0,self.sizeX):
             for y in range(0,self.sizeY):
                 self.playground[x][y].tick()
+                
         # smell degrading, we want the smell of the objects to degrade with time
         for x in range(0 ,self.sizeX):
             for y in range(0 ,self.sizeY):
@@ -580,9 +581,12 @@ class board():
                 elif self.smell[x][y][1]==1:
                     self.smell[x][y]=(0,0)
       # if the object recently moved, is in or out porting od dying, we do not move it again for a while
+                if self.playground[x][y].steppingOn!=None and self.playground[x][y].steppingOn.type!=EMPTYELEMENT:
+                    elementMech =switch.get(self.playground[x][y].steppingOn.type)
+                    elementMech(x, y,command,True)
                 if self.playground[x][y].moved==0 and self.playground[x][y].outPorting==0 and self.playground[x][y].inPorting==0 and self.playground[x][y].killed==0:    
                     elementMech =switch.get(self.playground[x][y].type)
-                    elementMech(x, y,command)
+                    elementMech(x, y,command,False)
         #take care of all these counters
 
                                 
@@ -591,13 +595,19 @@ class board():
 
 #here we got the methods for board mechanics
 #every method will control different object type
-    def empty(self, x, y,cmd):
+    def empty(self, x, y,cmd,stpd=False):
+        if stpd:
+            return False        
         pass
 
-    def remains(self,x,y,cmd):
+    def remains(self,x,y,cmd,stpd=False):
+        if stpd:
+            return False
         pass
 
-    def exit(self,x,y,cmd):
+    def exit(self,x,y,cmd,stpd=False):
+        if stpd:
+            return False
         if self.exitReady==True and self.playground[x][y].subType==0:
             self.playground[x][y].subType=_ExitOpen
             self.playground[x][y].steppable=False
@@ -675,11 +685,11 @@ class board():
 #I should create a method step on, but here it would make things a bit weird
     def moveObj(self,posFrom,posTo,direction,speed=3):
             self.playground[posFrom[0]][posFrom[1]],self.playground[posTo[0]][posTo[1]],self.playground[posTo[0]][posTo[1]].steppingOn=self.playground[posFrom[0]][posFrom[1]].steppingOn,self.playground[posFrom[0]][posFrom[1]],self.playground[posTo[0]][posTo[1]] 
-            #this is a dirty fix, but should be fixed, sometimes steppingOn is None, that should not happen.
+            # This is an equivalent of same thing done in the restoreElement method, we could use it here, but we will not
             if self.playground[posTo[0]][posTo[1]]==None:
                 self.playground[posTo[0]][posTo[1]]=boardMember()
             if self.playground[posFrom[0]][posFrom[1]]==None:
-                self.playground[posFrom[0]][postFrom[1]]=boardMember()
+                self.playground[posFrom[0]][posFrom[1]]=boardMember()
             self.playground[posTo[0]][posTo[1]].moved=speed
             self.playground[posTo[0]][posTo[1]].justTurned=False
             self.playground[posTo[0]][posTo[1]].changed=True
@@ -757,7 +767,7 @@ class board():
                 self.playground[x+1][y].kill()    
             
 
-    def missile(self,x,y,cmd_):
+    def missile(self,x,y,cmd_,stpd=False):
         if self.playground[x][y].movable==False:
             return
 
@@ -932,7 +942,9 @@ class board():
 
 
 
-    def monster(self,x,y,cmd_):
+    def monster(self,x,y,cmd_,stpd=False):
+        if stpd:
+            return False
         detectedSmell=self.smell[x][y]
         self.smell[x][y]=(MONSTER,100)
         if self.playground[x][y].subType<2:
@@ -981,7 +993,7 @@ class board():
         tst:bool=False
          #if tX!=x or tY!=y:
         t=True
-        for n in self.findNeighboors(x,y):
+        for n in self.findNeighboors(x,y)[1:]:
             if n[2].steppable==False:
                 t=False
                 break
@@ -1008,7 +1020,10 @@ class board():
 
 
 
-    def player(self, x, y,cmd_):
+    def player(self, x, y,cmd_,stpd=False):
+        if stpd:
+            self.playground[x][y].steppingOn.kill()
+            return
         """
         Player control routine (x,y,(leftControl(direction,mod),rightControl(direction,mod)))
             It is quite simple, it adds smell to the smell matrix, 
@@ -1040,31 +1055,48 @@ class board():
  
       
       
-    def token(self,x,y,cmd):
+    def token(self,x,y,cmd,stpd=False):
+        if stpd:
+            return False
         pass
-    def wall(self, x, y,cmd):
-        pass
-
-    def box(self, x, y,cmd):
-        pass
-
-    def ammo(self, x, y,cmd):
+    def wall(self, x, y,cmd,stpd=False):
+        if stpd:
+            return False
         pass
 
-    def key(self, x, y,cmd):
-        
+    def box(self, x, y,cmd,stpd=False):
+        if stpd:
+            return False
         pass
 
-    def door(self, x, y,cmd):
+    def ammo(self, x, y,cmd,stpd=False):
+        if stpd:
+            return False
         pass
 
-    def turret(self, x, y,cmd):
+    def key(self, x, y,cmd,stpd=False):
+        if stpd:
+            return False        
         pass
 
-    def tank(self, x, y,cmd):
+    def door(self, x, y,cmd,stpd=False):
+        if stpd:
+            return False
         pass
 
-    def bomb(self, x, y,cmd):
+    def turret(self, x, y,cmd,stpd=False):
+        if stpd:
+            return False
+        pass
+
+    def tank(self, x, y,cmd,stpd=False):
+        if stpd:
+            return False
+        pass
+
+    def bomb(self, x, y,cmd,stpd=False):
+        if stpd:
+            return False
         if self.playground[x][y].shot==1:
             self.playground[x][y].type=BOX
             self.playground[x][y].demolish()
@@ -1087,10 +1119,10 @@ class board():
 
         
 
-    def teleport(self, x, y,cmd):
+    def teleport(self, x, y,cmd,stpd=False):
         pass
 
-    def magnet(self, x, y,cmd):
+    def magnet(self, x, y,cmd,stpd=False):
         pass
 
  
@@ -1126,10 +1158,11 @@ class board():
         for x in range(0,self.sizeX):
             for y in range(0,self.sizeY):
                 elem=self.playground[x][y]
+
             #    print(elem)
                 if elem.direction==None:
                     elem.direction=_UP
-                result.append((x,y,elem.type,elem.direction,elem.animPhase,elem.subType,self.smell[x][y],elem.outPorting,elem.inPorting,elem.killed))
+                result.append((x,y,elem,self.smell[x][y]))
         return result
 
 

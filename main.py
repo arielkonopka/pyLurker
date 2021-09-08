@@ -1,4 +1,4 @@
-
+#!/usr/bin/python3 
 import pygame
 import time
 import sys
@@ -64,10 +64,8 @@ while 1:
     pygame.display.flip()
     time.sleep(1 / 40)
     statecnt-=1
- # qqq  print(cmd)
     
 
 
 
 
-q

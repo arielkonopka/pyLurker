@@ -102,7 +102,7 @@ class boardMember():
     #teleporting in and out 
     inPorting = 0
     outPorting = 0
-
+    tokensCanGo=False
     canKill=False
     canTeleport=False
     canOpenDoors=False
@@ -175,7 +175,7 @@ class boardMember():
             self.steppable=False
             self.canTeleport=False
             return True
-        if self.type==TOKEN:
+        if self.type==TOKEN and boardMember.tokensCanGo:
             boardMember.tokens-=1
         elif self.type==PLAYER:
             boardMember.players-=1
@@ -279,6 +279,8 @@ class boardMember():
 
 
     def tick(self):
+        if self.steppingOn!=None and self.steppingOn.type!=EMPTYELEMENT:
+            self.steppingOn.tick()
         self.visited=False
         self.__cntA=(self.__cntA+1) % self.animSpeed
         if self.__cntA==0:
@@ -348,6 +350,7 @@ class boardMember():
         pass
 
     def door(self):
+        self.open=False
         self.destructable =True
         self.steppingOn=boardMember(EMPTYELEMENT)
     #it is similar to door, can be destroyed in an exlosion, but cannot be shot
@@ -438,6 +441,7 @@ class board():
     sizeY =0
     exitAchived=False
     exitReady=False
+
     def __init__(self ,size):
         self.playground =[[boardMember() for i in range(0 ,size[1])] for j in range(0 ,size[0])]
         #the smells matrix, objects are tuples with type and strength of the smell
@@ -450,6 +454,57 @@ class board():
         boardMember.players=-1
         boardMember.playerNo=-1
         boardMember.tokens=0
+
+    def iterateMech(self,command):
+        """
+        Main game mechanics routine,
+        first we let boardMember object to maintain their timers and other stuff.
+        The switch variable works as a switch statement, that can be used multiple times with different context.
+        To add a new object support, just add metod to the class board and then an entry to the dictionary switch:
+        YOURTHING:self.yourMethod
+        Of course, add YOURTHING constant somewhere in the module and self.yourMethod should be defined as:
+            def yourMethod(self, x, y,cmd,stpd=False)
+        stpd is set to True if the object being called is currently being stepped on, refer to the object as self.playground[x][y].steppingOn
+        Thanks to that you can support a link between the stepped on and the stepping objects
+        """
+
+        # here we launch all the methods that are supposed to be run during mechanics update on a boardMember level
+        # like timers, animation phases, outporting and killing of objects, restoring objects
+        # consider this a timer tick
+        for x in range(0,self.sizeX):
+            for y in range(0,self.sizeY):
+                self.playground[x][y].tick()
+
+        # here we define methods that should be run on different elements, we do not define anything that can be already standard
+        # like if we want an pushable object that kills, we simply can create it and not worry about it's mechanics
+        switch ={
+                  PLAYER :self.player ,
+                  BOMB:self.bomb,
+                  MONSTER:self.monster,
+                  MISSILE:self.missile,
+                  EXIT:self.exit
+                
+                 }
+   
+        # smell degrading, we want the smell of the objects to degrade with time
+        for x in range(0 ,self.sizeX):
+            for y in range(0 ,self.sizeY):
+                # decrease the smell of objects. Do not worry, the objects that smell will create new signal
+                # therefore the old signal will fade away automagically
+                if self.smell[x][y][1]>1:
+                    self.smell[x][y]=(self.smell[x][y][0],self.smell[x][y][1]-1)
+                elif self.smell[x][y][1]==1:
+                    self.smell[x][y]=(0,0)
+                # if the object recently moved, is in or out porting or dying, we do not move it again for a while
+                if self.playground[x][y].steppingOn!=None and self.playground[x][y].steppingOn.type!=EMPTYELEMENT:
+                    elementMech =switch.get(self.playground[x][y].steppingOn.type)
+                    if elementMech: 
+                        elementMech(x, y,command,True)
+                if self.playground[x][y].moved==0 and self.playground[x][y].outPorting==0 and self.playground[x][y].inPorting==0 and self.playground[x][y].killed==0:    
+                    elementMech =switch.get(self.playground[x][y].type)
+                    if elementMech:
+                        elementMech(x, y,command,False)
+        #take care of all these counters
 
         
     def findNeighboors(self,x,y,result=None,theType=None ):
@@ -536,83 +591,6 @@ class board():
             return
         self.playground[x][y]=boardMember(member[0],member[1],member[2],member[3])
         self.playground[x][y].steppingOn=boardMember(EMPTYELEMENT)
-
-
-
-    def iterateMech(self,command):
-        """
-        Main game mechanics routine
-        """
-        # here we define methods that should be run on different elements
-        switch ={EMPTYELEMENT :self.empty ,
-                  PLAYER :self.player ,
-                  WALL :self.wall ,
-                  BOX :self.box ,
-                  AMMO :self.ammo ,
-                  KEY :self.key ,
-                  DOOR :self.door ,
-                  TURRET :self.turret ,
-                  TANK :self.tank,
-                  BOMB:self.bomb,
-                  TELEPORT:self.teleport,
-                  MAGNET:self.magnet,
-                  MONSTER:self.monster,
-                  TOKEN:self.token,
-                  MISSILE:self.missile,
-                  EXIT:self.exit,
-                  REMAINS:self.remains
-                
-                 }
-   
-        # here we launch all the methods that are supposed to be run during mechanics update on a boardMember level
-        # like timers, animation phases, outporting and killing of objects, restoring objects
-        # consider this a timer tick
-        for x in range(0,self.sizeX):
-            for y in range(0,self.sizeY):
-                self.playground[x][y].tick()
-                
-        # smell degrading, we want the smell of the objects to degrade with time
-        for x in range(0 ,self.sizeX):
-            for y in range(0 ,self.sizeY):
-#decrease the smell of objects. Do not worry, the objects that smell will create new signal
-#therefore the old signal will fade away automagically
-                if self.smell[x][y][1]>1:
-                    self.smell[x][y]=(self.smell[x][y][0],self.smell[x][y][1]-1)
-                elif self.smell[x][y][1]==1:
-                    self.smell[x][y]=(0,0)
-      # if the object recently moved, is in or out porting od dying, we do not move it again for a while
-                if self.playground[x][y].steppingOn!=None and self.playground[x][y].steppingOn.type!=EMPTYELEMENT:
-                    elementMech =switch.get(self.playground[x][y].steppingOn.type)
-                    elementMech(x, y,command,True)
-                if self.playground[x][y].moved==0 and self.playground[x][y].outPorting==0 and self.playground[x][y].inPorting==0 and self.playground[x][y].killed==0:    
-                    elementMech =switch.get(self.playground[x][y].type)
-                    elementMech(x, y,command,False)
-        #take care of all these counters
-
-                                
-
-
-
-#here we got the methods for board mechanics
-#every method will control different object type
-    def empty(self, x, y,cmd,stpd=False):
-        if stpd:
-            return False        
-        pass
-
-    def remains(self,x,y,cmd,stpd=False):
-        if stpd:
-            return False
-        pass
-
-    def exit(self,x,y,cmd,stpd=False):
-        if stpd:
-            return False
-        if self.exitReady==True and self.playground[x][y].subType==0:
-            self.playground[x][y].subType=_ExitOpen
-            self.playground[x][y].steppable=False
-            self.playground[x][y].destructable=False
-
 
 
 #def createOverObject(self,x,y,objectType,direction,subType=0):
@@ -767,32 +745,6 @@ class board():
                 self.playground[x+1][y].kill()    
             
 
-    def missile(self,x,y,cmd_,stpd=False):
-        if self.playground[x][y].movable==False:
-            return
-
-        myself=self.playground[x][y]
-        target=None
-        targetX=x
-        targetY=y
-        if myself.direction==_UP and y>0:
-            targetY=y-1
-        elif myself.direction==_DOWN and y<self.sizeY-1:
-            targetY=y+1
-        elif myself.direction==_LEFT and x>0:
-            targetX=x-1
-        elif myself.direction==_RIGHT and x<self.sizeX-1:
-            targetX=x+1
-        target=self.playground[targetX][targetY]
-        if target.steppable==True:
-            self.moveObj((x,y),(targetX,targetY),myself.direction)
-        elif target.killable==True:
-            self.playground[x][y].restoreElement()
-            self.playground[targetX][targetY].kill()
-        else:
-            self.playground[x][y].demolish()
-            #we kill the messile, if it cannot move any further
-        
 
     def checkKeys(self,x,y,type=0):
         if self.playground[x][y].objCollection:
@@ -809,7 +761,9 @@ class board():
         for obj in self.playground[x][y].objCollection:
             if obj.type==KEY and obj.subType==type_:
                 self.playground[x][y].objCollection.remove(obj)
-                self.playground[x1][y1].demolish() # doors are not killable and this trick would not work with them
+                print("Open Doors")
+                self.playground[x1][y1].open=True
+                #self.playground[x1][y1].demolish() # doors are not killable and this trick would not work with them
                                                  # we could simply make them steppable, and make mosters not see through them
                                                  # thing to consider later 
                 return True
@@ -822,94 +776,54 @@ class board():
         """
         if self.playground[x][y].movable==False:
             return False
+        targetX=x
+        targetY=y
+        targetYY=y
+        targetXX=x
         self.playground[x][y].direction=direction
         if direction==_UP and y>0:
-            if self.playground[x][y-1].steppable==True:
-                self.moveObj((x,y),(x,y-1),_UP)
-                return True
-            elif self.playground[x][y-1].type==TELEPORT and self.playground[x][y].canTeleport==True:
-                self.teleportObject(x,y,x,y-1)
-                return True
-            elif self.playground[x][y-1].type==EXIT and self.playground[x][y-1].subType==1 and self.playground[x][y].type==PLAYER:
-                self.collect((x,y-1),(x,y))
-                self.exitAchived=True
-                return True
-            elif self.playground[x][y-1].movable==True and y>1 and self.playground[x][y-2].steppable==True and self.playground[x][y].canPushObjects==True:
-                self.pushObject((x,y),(x,y-1),(x,y-2),_UP)
-                return True
-            elif self.playground[x][y-1].collectible==True and self.playground[x][y].canCollect==True:
-                    self.collect((x,y),(x,y-1))
-                    self.moveObj((x,y),(x,y-1),_UP)
-                    return True
-            elif y>1 and self.playground[x][y-1].type==DOOR and self.playground[x][y].canOpenDoors==True:
-                self.openDoor(x,y,x,y-1)
-                return True
-        if direction==_DOWN and y<self.sizeY-1:
-          #  print(">{}".format(cmd))
-            if self.playground[x][y+1].steppable==True:
-                self.moveObj((x,y),(x,y+1),_DOWN)
-                return True
-            elif self.playground[x][y+1].type==TELEPORT and self.playground[x][y].canTeleport==True:
-                self.teleportObject(x,y,x,y+1)
-                return True
-            elif self.playground[x][y+1].type==EXIT and self.playground[x][y+1].subType==1 and self.playground[x][y].type==PLAYER:
-                self.collect((x,y+1),(x,y))
-                self.exitAchived=True
-                return True
-            elif self.playground[x][y+1].movable==True and y<self.sizeY-2 and self.playground[x][y+2].steppable==True and self.playground[x][y].canPushObjects==True:
-                self.pushObject((x,y),(x,y+1),(x,y+2),_DOWN)
-                return True
-            elif self.playground[x][y+1].collectible==True and self.playground[x][y].canCollect==True:
-                self.collect((x,y),(x,y+1))
-                self.moveObj((x,y),(x,y+1),_DOWN)
-                return True
-            if y<self.sizeY-2 and self.playground[x][y+1].type==DOOR and self.playground[x][y].canOpenDoors==True:
-                self.openDoor(x,y,x,y+1)
-                return True
+            targetY=y-1
+            if y>1:
+                targetYY=y-2
+        if direction==_DOWN and y<self.sizeY:
+            targetY=y+1
+            if y<self.sizeY-1:
+                targetYY=y+2    
         if direction==_LEFT and x>0:
-            if  self.playground[x-1][y].steppable==True:
-                self.moveObj((x,y),(x-1,y),_LEFT)
+            targetX=x-1
+            if x>1:
+                targetXX=x-2
+        if direction==_RIGHT and x<self.sizeX:
+            targetX=x+1
+            if x<self.sizeX-1:
+                targetXX=x+2
+        if targetX!=x or targetY!=y:
+            if self.playground[targetX][targetY].steppable==True:
+                self.moveObj((x,y),(targetX,targetY),direction)
                 return True
-            elif self.playground[x-1][y].type==TELEPORT and self.playground[x][y].canTeleport==True:
-                self.teleportObject(x,y,x-1,y)
+            elif self.playground[targetX][targetY].type==TELEPORT and self.playground[x][y].canTeleport==True:
+                self.teleportObject(x,y,targetX,targetY)
                 return True
-            elif self.playground[x-1][y].type==EXIT and self.playground[x-1][y].subType==1 and self.playground[x][y].type==PLAYER:
-                self.collect((x-1,y),(x,y))
+            elif self.playground[targetX][targetY].type==EXIT and self.playground[targetX][targetY].subType==1 and self.playground[x][y].type==PLAYER:
+                self.collect((targetX,targetY),(x,y))
                 self.exitAchived=True
                 return True
-            elif self.playground[x-1][y].movable==True and x>1 and self.playground[x-2][y].steppable==True and self.playground[x][y].canPushObjects==True:
-                self.pushObject((x,y),(x-1,y),(x-2,y),_LEFT)
+            elif (targetXX!=x or targetYY!=y) and self.playground[targetX][targetY].movable==True and self.playground[targetXX][targetYY].steppable==True and self.playground[x][y].canPushObjects==True:
+                print("pusz")
+                self.pushObject((x,y),(targetX,targetY),(targetXX,targetYY),direction)
                 return True
-            elif self.playground[x-1][y].collectible==True and self.playground[x][y].canCollect==True:
-                self.collect((x,y),(x-1,y))
-                self.moveObj((x,y),(x-1,y),_LEFT)
-                return True
-            elif x>2 and self.playground[x-1][y].type==DOOR and self.playground[x][y].canOpenDoors==True:
-                self.openDoor(x,y,x-1,y)
-                return True
-        if direction==_RIGHT and x<self.sizeX-1:
-            if self.playground[x+1][y].steppable==True:
-                self.moveObj((x,y),(x+1,y),_RIGHT)
-                return True
-            elif self.playground[x+1][y].type==TELEPORT and self.playground[x][y].canTeleport==True:
-                self.teleportObject(x,y,x+1,y)
-                return True
-            elif self.playground[x+1][y].type==EXIT and self.playground[x+1][y].subType==1 and self.playground[x][y].type==PLAYER:
-                self.collect((x+1,y),(x,y))
-                self.exitAchived=True
-                return True
-            elif self.playground[x+1][y].movable==True and x<self.sizeX-2 and self.playground[x+2][y].steppable==True and self.playground[x][y].canPushObjects==True:
-                self.pushObject((x,y),(x+1,y),(x+2,y),_RIGHT)
-            elif self.playground[x+1][y].collectible==True and self.playground[x][y].canCollect==True:
-                self.collect((x,y),(x+1,y))
-                self.moveObj((x,y),(x+1,y),_RIGHT)
-                return True
-            elif x<self.sizeX-2 and self.playground[x+1][y].type==DOOR and self.playground[x][y].canOpenDoors==True:
-                self.openDoor(x,y,x+1,y)    
+            elif self.playground[targetX][targetY].collectible==True and self.playground[x][y].canCollect==True:
+                    self.collect((x,y),(targetX,targetY))
+                    self.moveObj((x,y),(targetX,targetY),direction)
+                    return True
+            elif y>1 and self.playground[targetX][targetY].type==DOOR and self.playground[x][y].canOpenDoors==True:
+                if self.playground[targetX][targetY].open==True:
+                    print("Walk through doors")
+                    self.moveObj((x,y),(targetX,targetY),direction)
+                else:
+                    self.openDoor(x,y,targetX,targetY)
                 return True
         return False
-
-
 
 
     def monsterPlayerDetected(self,x,y,player):
@@ -942,19 +856,12 @@ class board():
 
 
 
-    def monster(self,x,y,cmd_,stpd=False):
-        if stpd:
-            return False
-        detectedSmell=self.smell[x][y]
-        self.smell[x][y]=(MONSTER,100)
-        if self.playground[x][y].subType<2:
-            self.monsterVision(x,y,cmd_,detectedSmell)
 
-    def monsterWalkDirection(self,x,y,directionList):
-        for direction in directionList:
-            if self.walkObjectDirection(x,y,direction)==True:
-                return True
-        return False
+  #  def monsterWalkDirection(self,x,y,directionList):
+  #      for direction in directionList:
+  #          if self.walkObjectDirection(x,y,direction)==True:
+  #              return True
+  #      return False
 
 #here we will contain the monster logic
     def monsterVision(self,x,y,cmd_,detectedSmell=(0,0)):
@@ -1013,7 +920,104 @@ class board():
                 if tst:
                     break
           #  tst = self.walkObjectDirection(x, y, (self.playground[x][y].direction+1)%4) #LURD
+    
+    def getStats(self):
+        """
+            This method collects basic statistics about the game, it will be used for gathering the stats
+            it also calculates if the exit shouldd be reached, this of course can be overriden by the exit 
+            control method
+        """
+        ammo=0
+        keys=0
+        tokens=0
+        tokensRemaining=0
+        players=0
+        for x in range(0,self.sizeX):
+            for y in range(0,self.sizeY):                
+                if self.playground[x][y].type==PLAYER:
+                    players+=1
+                    if self.playground[x][y].objCollection:
+                        for z in self.playground[x][y].objCollection:
+                    #    print(z)
+                            if z.type==KEY:
+                                keys+=1
+                            if z.type==AMMO:
+                                ammo+=z.shots
+                            if z.type==TOKEN:
+                                tokens+=1              
+                elif self.playground[x][y].type==TOKEN:
+                    tokensRemaining+=1
+        if tokens==boardMember.tokens:
+            self.exitReady=True
+        return (keys,ammo,tokens,boardMember.tokens,players)
 
+
+
+    def getChangedBoxes(self):
+        result=[]
+        for x in range(0,self.sizeX):
+            for y in range(0,self.sizeY):
+                elem=self.playground[x][y]
+
+            #    print(elem)
+                if elem.direction==None:
+                    elem.direction=_UP
+                result.append((x,y,elem,self.smell[x][y]))
+        return result
+
+##################################################################################################
+
+# here we got the methods for board mechanics
+# every method will control different object type
+    def exit(self,x,y,cmd,stpd=False):
+        if stpd:
+            return False
+        if self.exitReady==True and self.playground[x][y].subType==0:
+            self.playground[x][y].subType=_ExitOpen
+            self.playground[x][y].steppable=False
+            self.playground[x][y].destructable=False
+
+
+    def monster(self,x,y,cmd_,stpd=False):
+        if stpd:
+            return False
+        detectedSmell=self.smell[x][y]
+        self.smell[x][y]=(MONSTER,100)
+        if self.playground[x][y].subType<2:
+            self.monsterVision(x,y,cmd_,detectedSmell)
+
+
+
+
+    def missile(self,x,y,cmd_,stpd=False):
+        if stpd:
+            return False
+  
+        if self.playground[x][y].movable==False:
+            return
+        
+        myself=self.playground[x][y]
+        target=None
+        targetX=x
+        targetY=y
+        if myself.direction==_UP and y>0:
+            targetY=y-1
+        elif myself.direction==_DOWN and y<self.sizeY-1:
+            targetY=y+1
+        elif myself.direction==_LEFT and x>0:
+            targetX=x-1
+        elif myself.direction==_RIGHT and x<self.sizeX-1:
+            targetX=x+1
+        target=self.playground[targetX][targetY]
+        if target.steppable==True:
+            self.moveObj((x,y),(targetX,targetY),myself.direction)
+        elif target.killable==True:
+            self.playground[x][y].restoreElement()
+            self.playground[targetX][targetY].kill()
+        else:
+            self.playground[x][y].demolish()
+            #we kill the messile, if it cannot move any further
+        
 
 
 
@@ -1052,47 +1056,6 @@ class board():
             return
 
         self.walkObjectDirection(x,y,cmd)
- 
-      
-      
-    def token(self,x,y,cmd,stpd=False):
-        if stpd:
-            return False
-        pass
-    def wall(self, x, y,cmd,stpd=False):
-        if stpd:
-            return False
-        pass
-
-    def box(self, x, y,cmd,stpd=False):
-        if stpd:
-            return False
-        pass
-
-    def ammo(self, x, y,cmd,stpd=False):
-        if stpd:
-            return False
-        pass
-
-    def key(self, x, y,cmd,stpd=False):
-        if stpd:
-            return False        
-        pass
-
-    def door(self, x, y,cmd,stpd=False):
-        if stpd:
-            return False
-        pass
-
-    def turret(self, x, y,cmd,stpd=False):
-        if stpd:
-            return False
-        pass
-
-    def tank(self, x, y,cmd,stpd=False):
-        if stpd:
-            return False
-        pass
 
     def bomb(self, x, y,cmd,stpd=False):
         if stpd:
@@ -1117,54 +1080,9 @@ class board():
             if y<self.sizeY-1:
                 self.playground[x][y+1].demolish()
 
-        
-
-    def teleport(self, x, y,cmd,stpd=False):
-        pass
-
-    def magnet(self, x, y,cmd,stpd=False):
-        pass
 
  
-    def getStats(self):
-        ammo=0
-        keys=0
-        tokens=0
-        tokensRemaining=0
-        players=0
-        for x in range(0,self.sizeX):
-            for y in range(0,self.sizeY):                
-                if self.playground[x][y].type==PLAYER:
-                    players+=1
-                    if self.playground[x][y].objCollection:
-                        for z in self.playground[x][y].objCollection:
-                    #    print(z)
-                            if z.type==KEY:
-                                keys+=1
-                            if z.type==AMMO:
-                                ammo+=z.shots
-                            if z.type==TOKEN:
-                                tokens+=1              
-                elif self.playground[x][y].type==TOKEN:
-                    tokensRemaining+=1
-        if tokensRemaining==0:
-            self.exitReady=True
-        return (keys,ammo,tokens,boardMember.tokens,players)
-
-
-
-    def getChangedBoxes(self):
-        result=[]
-        for x in range(0,self.sizeX):
-            for y in range(0,self.sizeY):
-                elem=self.playground[x][y]
-
-            #    print(elem)
-                if elem.direction==None:
-                    elem.direction=_UP
-                result.append((x,y,elem,self.smell[x][y]))
-        return result
-
+    
 
 if __name__=="__main__":
   pass

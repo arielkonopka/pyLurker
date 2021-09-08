@@ -166,14 +166,14 @@ class videoManager:
             sdirection=None
             if not animPatt:
                 return
-            if bElement.direction!=None: 
-                sdirection=animPatt[bElement.direction % (len(animPatt))]
+            if bElement.steppingOn.direction!=None: 
+                sdirection=animPatt[bElement.steppingOn.direction % (len(animPatt))]
             else:   
                 sdirection=animPatt[0]
            # print("{} -> {} ".format(objectType[3],len(sdirection) ))
-            sType=sdirection[bElement.subType % len(sdirection) ]
-            xPos=sType[bElement.animPhase % len(sType)][0]
-            yPos=sType[bElement.animPhase % len(sType)][1]
+            sType=sdirection[bElement.steppingOn.subType % len(sdirection) ]
+            xPos=sType[bElement.steppingOn.animPhase % len(sType)][0]
+            yPos=sType[bElement.steppingOn.animPhase % len(sType)][1]
         self.__srcHndl.blit(self.__iconsTexture,position,((self.__iconWidth+self.interlace)*xPos+self.interlace,
             (self.__IconHeight+self.interlace)*yPos+self.interlace,
             self.__iconWidth,

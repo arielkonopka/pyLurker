@@ -39,8 +39,10 @@ class lvlManger():
     def saveLvlSet(self):
         pass
 
-    def getLevelObject(self,levelNo,xPos, yPos):
-        #do not try to process nulls
+    def getLevelObject(self,levelNo,xPos,yPos):
+        '''
+        This method will help with translating a marker to a boardElement
+        '''
         if not self.__levelSet:
             return None
         level=self.getLevel(levelNo)
@@ -53,96 +55,43 @@ class lvlManger():
         if len(line)-1<xPos:
             return None
         marker=line[xPos]
-        switch={
-            '@':self.makePlayer,
-            'M':self.makeMonster,
-            'm':self.makeMonster,
-            'N':self.makeMonster,
-            'n':self.makeMonster,
-            '#':self.makeWall,
-            '*':self.makeBox,
-            ' ':self.makeEmpty,
-            '<':self.makeBox,
-            '!':self.makeAmmo,
-            '%':self.makeWall,
-            '~':self.makeBomb,
-            '`':self.makeBomb,
-            '&':self.makeKey,
-            '$':self.makeToken,
-            'D':self.makeDoor,
-            'd':self.makeDoor,
-            '7':self.makeKey,
-            'X':self.makeExit,
-            'T':self.makeTeleport,
-            't':self.makeTeleport
-            }
-        objType=switch.get(marker)
-        if objType:
-            return objType(marker)
-        else:
-            return self.makeEmpty(None)   
-
-    def makeTeleport(self,marker):
-        if marker=='T':
-            return(board.TELEPORT,0,0,False)
-        else:
-            return(board.TELEPORT,0,1,False)
-
-    def makeMonster(self,marker):
-        monsterList=['M','m','N','n']
-        stype=monsterList.index(marker)
-        print("{}->{}".format("Monster",stype))
-        return(board.MONSTER,0,stype,False)
-
-    def makeExit(self,marker):
-        """
-            in This case subtype will indicate if the exit is open or not
-        """
-        return(board.EXIT,0,0,False)
-
-    def makeDoor(self,marker):
-        if marker=='D':
-            return(board.DOOR,0,0,False) 
-        else:
-           # print("subtype1")
-            return(board.DOOR,1,1,False)
-
-    def makeToken(self,marker):
-        return(board.TOKEN,0,0,False)
-
-    def makeKey(self,marker):
-        if marker=='&':
-            return(board.KEY,0,0,False)
-        else:
-            return(board.KEY,0,1,False)
-
-    def makeBomb(self,marker):
-        switch={'~':0,'`':1}
-#        print('bomb: {}'.format(switch.get(marker)))
-        return(board.BOMB,0,switch.get(marker),False)
-
-    def makePlayer(self,marker):
-        return (board.PLAYER, 0, 0, False)
-    def makeWall(self,marker):
-        switch={'#':0,'%':1}
-        return (board.WALL,switch.get(marker),switch.get(marker),False)
-    def makeBox(self,marker):
-        switch={'*':0,'<':1}
-        return (board.BOX,0,switch.get(marker),False)
-    def makeEmpty(self,marker):
+            # we got lists here, so we could easily calculate the subtype
+        translator={board.PLAYER:['@'],
+                    board.MONSTER:['M','m','N','n'],
+                    board.WALL:['W','w','%','#'],
+                    board.BOX:['*','<'],
+                    board.AMMO:['!'],
+                    board.BOMB:['~','`'],
+                    board.KEY:['&','7'],
+                    board.TOKEN:['$'],
+                    board.DOOR:['D','d'],
+                    board.EXIT:['X'],
+                    board.TELEPORT:['T','t']
+        }
+        for eClass in translator:
+            subtype=0
+            for mrks in translator.get(eClass):
+                if marker==mrks:
+                    return self.applyCorrections((eClass,0,subtype,False),level,(xPos,yPos))
+                subtype+=1
         return(board.EMPTYELEMENT,0,0,False)
-    def makeAmmo(self,marker):
-        return(board.AMMO,0,0,False)
+        
+
+    def applyCorrections(self,element,level,position):
+        corrections=level['LevelObjectCorrections']
+        if corrections==None:
+            return element
+        for cor in corrections:
+            if position[0]==cor[0] and position[1]==cor[1]:
+                element[1]=cor[2]
+                element[2]=cor[3]
+                element[3]=cor[4]
+                break
+        return element
 
 
 
-
-
-
-
-
-
-
+   
 
 
     def getRealSize(self,levelNo):

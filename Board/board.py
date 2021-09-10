@@ -580,6 +580,11 @@ class board():
                     return (x,y)
         return None
     
+    def createOverObject(self,x,y,objectType,direction,subType=0,rotatable=False):
+        newMember=boardMember(objectType,direction,subType,rotatable)
+        newMember.moved=2
+        newMember.steppingOn,self.playground[x][y]=self.playground[x][y],newMember
+        
 
 
 #we take a tuple and set it as a board member
@@ -589,8 +594,9 @@ class board():
         """
         if not member:
             return
-        self.playground[x][y]=boardMember(member[0],member[1],member[2],member[3])
-        self.playground[x][y].steppingOn=boardMember(EMPTYELEMENT)
+        self.createOverObject(x,y,member[0],member[1],member[2],member[3])
+       # self.playground[x][y]=boardMember(member[0],member[1],member[2],member[3])
+       # self.playground[x][y].steppingOn=boardMember(EMPTYELEMENT)
 
 
 #def createOverObject(self,x,y,objectType,direction,subType=0):
@@ -679,11 +685,6 @@ class board():
         self.moveObj(posTo,posTo2,direction)
         self.moveObj(posFrom,posTo,direction)
 
-    def createOverObject(self,x,y,objectType,direction,subType=0):
-        newMember=boardMember(objectType,direction)
-        newMember.moved=2
-        newMember.steppingOn,self.playground[x][y]=self.playground[x][y],newMember
-        
 
     def checkAmmo(self,x,y):
         if not self.playground[x][y].objCollection:

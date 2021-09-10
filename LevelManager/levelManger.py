@@ -58,15 +58,18 @@ class lvlManger():
             # we got lists here, so we could easily calculate the subtype
         translator={board.PLAYER:['@'],
                     board.MONSTER:['M','m','N','n'],
-                    board.WALL:['W','w','%','#'],
+                    board.WALL:['#','%','W','w'],
                     board.BOX:['*','<'],
                     board.AMMO:['!'],
                     board.BOMB:['~','`'],
-                    board.KEY:['&','7'],
+                    board.KEY:['&','+'],
                     board.TOKEN:['$'],
                     board.DOOR:['D','d'],
                     board.EXIT:['X'],
-                    board.TELEPORT:['T','t']
+                    board.MAGNET:['a'], # we fix the direction with corrections, if necessary, default is 0 which is left
+                    board.TANK:['}'],   # we fix the directions with corrections, if necessary, default is 0 which is left
+                    board.TURRET:['>'], # we fix the direction with the corrections, if necessary, default is 0 which is left
+                    board.TELEPORT:['T','t','1','2','3','4','5','6','7','8','9','0']
         }
         for eClass in translator:
             subtype=0

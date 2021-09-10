@@ -286,20 +286,24 @@ class boardMember():
         if self.__cntA==0:
             #get the demolished animation and state done
             if self.demolished>0:
+                self.steppable=False
                 self.demolished-=1
                 self.changed=True
                 if self.demolished==0:
                     self.restoreElement()       
             #get the killed animation and state done
             if self.killed>0: 
+                self.steppable=False
                 self.killed-=1
                 if self.killed==0:
                     self.restoreElement(True)
                 self.changed=True
             if self.inPorting:
+                self.steppable=False
                 self.inPorting-=1
                 self.changed=True
             if self.outPorting>0:
+                self.steppable=False
                 self.outPorting-=1
                 if self.outPorting==0:
                     self.restoreElement()

@@ -73,7 +73,7 @@ class videoManager:
         self.dying=skinMngr.getObj('elementDie')
         self.exploding=skinMngr.getObj('elementExplode')
         self.remains=skinMngr.getObj('remains')
-
+        self.softWall=skinMngr.getObj('softWall')
         #load the texture file first
         self.__iconsTexture=pygame.image.load(textureFile)
         #set up the texture parameters
@@ -88,6 +88,11 @@ class videoManager:
         self.__viewUpperCorner=(0,0)
         pygame.font.init()
         self.__font=pygame.font.SysFont("Courier",40)
+
+
+
+    
+
 
 
     def drawObjectOnScreen(self,position,bElement:board.boardMember,smell):
@@ -109,7 +114,8 @@ class videoManager:
             board.MONSTER:self.drawMonster,
             board.EXIT:self.drawExit,
             board.TELEPORT:self.drawTeleport,
-            board.REMAINS:self.drawRemains
+            board.REMAINS:self.drawRemains,
+            board.SOFTWALL:self.drawSoftWall
             }
 #        if objectType[0]!=board.EMPTYELEMENT and self.playground!=None:
 #            bg=  switcher.get(self.playground[position[0]][position[1]].steppingOn.Type)  
@@ -179,6 +185,9 @@ class videoManager:
             self.__iconWidth,
             self.__IconHeight))
     
+
+
+
     def drawTeleport(self,position,bElement,subObj):
         self.drawBasicElement(position,bElement,self.teleport,subObj)
     def drawRemains(self,position,bElement,subObj):
@@ -210,12 +219,17 @@ class videoManager:
         self.drawBasicElement(position,bElement,self.player,subObj)
     def drawEmpty(self,position,bElement,subObj):
         return
-        self.drawBasicElement(position,bElement,self.empty,subObj)
+     #   self.drawBasicElement(position,bElement,self.empty,subObj)
     def drawDoor(self,position,bElement,subObj):
         self.drawBasicElement(position,bElement,self.door,subObj)
 
     def drawExit(self,position,bElement,subObj):
         self.drawBasicElement(position,bElement,self.exit,subObj)
+
+
+    def drawSoftWall(self,position,bElement,subObj):
+        self.drawBasicElement(position,bElement,self.softWall,subObj)
+
 
     def renderObjects(self,objlist):
         vUX:int=self.__viewUpperCorner[0]
@@ -242,8 +256,9 @@ class videoManager:
 
 
     def drawStats(self,stats):
+   #     print(self.__BoardSize[1]+self.__boardPos[1]+32)
         sf=self.__font.render("Keys: {}  Ammo: {} Tokens: {} Tokens remaining: {}".format(stats[0],stats[1],stats[2],stats[3]), None, (200,200,200))
-        self.__srcHndl.blit(sf,(200,700))
+        self.__srcHndl.blit(sf,(200,self.__BoardSize[1]+self.__boardPos[1]))
         pass
 
 

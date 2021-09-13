@@ -43,7 +43,7 @@ MONSTER = 100
 EXIT = 130
 # this a class of objects containing other objects. for them the collect routine must be adjusted
 STASH =140
-
+SOFTWALL = 150
 # constant values
 _DEFAULTAMMOUNT = 12
 
@@ -107,6 +107,7 @@ class boardMember():
     canTeleport=False
     canOpenDoors=False
     canPushObjects=False
+    notifications=None
     #we need a 'smart' support for this
     #when the object is created, it is in changed state - which means it would be rendered
     #but when nothing is happening, the object should be set to False
@@ -137,7 +138,8 @@ class boardMember():
                   MISSILE: self.missile,
                   TOKEN:self.token,
                   EXIT:self.exit,
-                  REMAINS:self.remains
+                  REMAINS:self.remains,
+                  SOFTWALL:self.softWall
                  }
         # basic initialization like type, subtype, direction and if the object can rotate, that is to create less object types for stuff like
         # turrets, tanks, magnets and other multilied types like enemies
@@ -152,9 +154,10 @@ class boardMember():
         self.steppable=False
         self.demolished=0
         self.destructable=True
-        self.killed=False
+        self.killed=0
         self.instanceNo=boardMember.instanceNo
         self.visited=False
+        self.notifications=None
         boardMember.instanceNo+=1
 
         elementInit = switch.get(self.type)
@@ -209,8 +212,9 @@ class boardMember():
         self.canTeleport=self.steppingOn.canTeleport
         self.steppable=self.steppingOn.steppable                #since it was already stepped on, no reason to copy the value
         #end the last bot not least, we can have a list of stepped on objects, and we do not want to forget it
+        self.notifications=self.steppingOn.notifications
         self.steppingOn=self.steppingOn.steppingOn
-
+        
 
 
 
@@ -218,9 +222,7 @@ class boardMember():
         if self.killed>0 or self.killable==False:
             return False
         if self.type==BOMB:
-            if self.shot==0:
-                self.shot=2
-            return True
+            return self.demolish()
         if self.shot==1 or self.type!=BOMB:
             self.movable=False
             self.canKill=False #this is very important, will the burning remains of an object be able to kill?
@@ -235,18 +237,18 @@ class boardMember():
 
     
     def demolish(self,time_=_KillingTime):
-        if self.destructable==False or self.demolished>0:
+        if self.destructable==False or self.demolished>0 or self.shot>1:
             return False
         if self.type==BOMB and self.shot==0:
-            self.shot=8
+            self.shot=4
             return True
-        self.type=BOX
+        self.type=SOFTWALL
+        self.killed=time_
         self.demolished=time_
         self.movable=False
         self.canKill=False #this is very important, will the burning remains of an object be able to kill?
         self.canShoot=False
         self.canOpenDoors=False
-        self.killed=time_
         self.collectible=False
         self.steppable=False
         self.animPhase=0
@@ -258,7 +260,7 @@ class boardMember():
                                      # inactive player could be kidnapped by a monster, that had to be shot to retrieve it, that would cause problem with player collecting it, we would have to extend the controls to drop the player :)
                                      # now we do not allow that, but still it can happen with subtype manipulations :)
         if self.canCollect==False and self.type!=EXIT and self.subType!=_ExitOpen:
-            return anotherMember #sorry object cannot collect
+            return anotherMember # sorry element is not allowed to collect
         if anotherMember.collectible==True or (anotherMember.type==PLAYER and self.type==EXIT and self.subType==_ExitOpen):
             if anotherMember.canCollect==True:
                 #oh, it seems w got ourselvs a collector
@@ -290,7 +292,7 @@ class boardMember():
                 self.demolished-=1
                 self.changed=True
                 if self.demolished==0:
-                    self.restoreElement()       
+                    self.restoreElement(True)       
             #get the killed animation and state done
             if self.killed>0: 
                 self.steppable=False
@@ -322,6 +324,13 @@ class boardMember():
         if self.moved>0:
             self.moved-=1
 
+    def softWall(self):
+        self.movable=False
+        self.killable=True
+        self.steppingOn=boardMember(EMPTYELEMENT)
+
+
+
     def remains(self):
         self.killable=False
         self.destructable=True
@@ -345,6 +354,7 @@ class boardMember():
     # we now define standard settings for each object type
     def empty(self):
         self.steppable=True
+        self.destructable=True
         pass
 
     # we could merge the settings for wall and empty object, as they share almost all the same qualities
@@ -486,7 +496,8 @@ class board():
                   BOMB:self.bomb,
                   MONSTER:self.monster,
                   MISSILE:self.missile,
-                  EXIT:self.exit
+                  EXIT:self.exit,
+                  BOX:self.box
                 
                  }
    
@@ -686,6 +697,7 @@ class board():
             self.playground[posTo[0]][posTo[1]].animPhase=(self.playground[posTo[0]][posTo[1]].animPhase+1) % 65535
 
     def pushObject(self,posFrom,posTo,posTo2,direction):
+
         self.moveObj(posTo,posTo2,direction)
         self.moveObj(posFrom,posTo,direction)
 
@@ -717,7 +729,7 @@ class board():
     def shootFromObject(self,x,y,cmdTuple):
         if self.playground[x][y].shooting!=0:
             return 
-        self.playground[x][y].shoting=1080
+        self.playground[x][y].shoting=25
         if self.checkAmmo(x,y)==True:
             self.takeOneAmmo(x,y)
         else:
@@ -766,7 +778,7 @@ class board():
         for obj in self.playground[x][y].objCollection:
             if obj.type==KEY and obj.subType==type_:
                 self.playground[x][y].objCollection.remove(obj)
-                print("Open Doors")
+           #     print("Open Doors")
                 self.playground[x1][y1].open=True
                 #self.playground[x1][y1].demolish() # doors are not killable and this trick would not work with them
                                                  # we could simply make them steppable, and make mosters not see through them
@@ -814,16 +826,16 @@ class board():
                 self.exitAchived=True
                 return True
             elif (targetXX!=x or targetYY!=y) and self.playground[targetX][targetY].movable==True and self.playground[targetXX][targetYY].steppable==True and self.playground[x][y].canPushObjects==True:
-                print("pusz")
+            #    print("pusz")
                 self.pushObject((x,y),(targetX,targetY),(targetXX,targetYY),direction)
                 return True
             elif self.playground[targetX][targetY].collectible==True and self.playground[x][y].canCollect==True:
                     self.collect((x,y),(targetX,targetY))
                     self.moveObj((x,y),(targetX,targetY),direction)
                     return True
-            elif y>1 and self.playground[targetX][targetY].type==DOOR and self.playground[x][y].canOpenDoors==True:
+            elif self.playground[targetX][targetY].type==DOOR and self.playground[x][y].canOpenDoors==True:
                 if self.playground[targetX][targetY].open==True:
-                    print("Walk through doors")
+               #     print("Walk through doors")
                     self.moveObj((x,y),(targetX,targetY),direction)
                 else:
                     self.openDoor(x,y,targetX,targetY)
@@ -982,6 +994,82 @@ class board():
             self.playground[x][y].steppable=False
             self.playground[x][y].destructable=False
 
+    def box(self,x,y,cmd,stpd=False):
+        if stpd:
+            return False
+        if self.playground[x][y].subType==0:
+            return False # we are normal box, no additional logic neede
+        objFound=None
+        bFound=(0,0)
+        closedLeft=False
+        closedUp=False
+        for nx in range(x-1,-1,-1):
+            if self.playground[nx][y].steppable:
+                continue
+            if self.playground[nx][y].type==BOX and self.playground[nx][y].subType==1:
+                bFound=(nx,y)
+                closedLeft=True
+                break
+            if self.playground[nx][y].killable==True: 
+                if objFound:
+                    objFound.append(self.playground[nx][y])
+                else:
+                    objFound=[self.playground[nx][y]]
+                continue
+            else:
+                break
+        if closedLeft==True:
+            self.playground[x][y].animSpeed=2
+            self.playground[bFound[0]][bFound[1]].animSpeed=2
+            if objFound:
+                self.playground[x][y].direction=_LEFT
+                self.playground[bFound[0]][bFound[1]].direction=_RIGHT
+                for ob in objFound:
+                    if ob.killed==0:
+                        ob.kill()
+                        #ob.demolish()
+
+        
+        else:
+            self.playground[x][y].animSpeed=3
+        objFound=None
+        for ny in range(y-1,-1,-1):
+            if self.playground[x][ny].steppable:
+                continue
+            if self.playground[x][ny].type==BOX and self.playground[x][ny].subType==1:
+                closedUp=True
+                bFound=(x,ny)
+                break
+            if self.playground[x][ny].killable==True:
+                if objFound:
+                    objFound.append(self.playground[x][ny])
+                else:
+                    objFound=[self.playground[x][ny]]
+                continue
+            else:
+                break
+
+
+        if closedUp:
+            self.playground[x][y].animSpeed=2
+            self.playground[bFound[0]][bFound[1]].animSpeed=2
+            if objFound:
+                self.playground[x][y].direction=_DOWN
+                self.playground[bFound[0]][bFound[1]].direction=_UP
+                for ob in objFound:
+                    if ob.killed==0:
+                        ob.kill()
+                        #ob.demolish()
+        else:
+            self.playground[x][y].animSpeed=3
+            #self.playground[bFound[0]][bFound[1]].animSpeed=3
+        
+        
+
+
+
+
+
 
     def monster(self,x,y,cmd_,stpd=False):
         if stpd:
@@ -1018,6 +1106,7 @@ class board():
             self.moveObj((x,y),(targetX,targetY),myself.direction)
         elif target.killable==True:
             self.playground[x][y].restoreElement()
+            self.playground[targetX][targetY].kill()
             self.playground[targetX][targetY].kill()
         else:
             self.playground[x][y].demolish()
@@ -1065,8 +1154,9 @@ class board():
     def bomb(self, x, y,cmd,stpd=False):
         if stpd:
             return False
+
         if self.playground[x][y].shot==1:
-            self.playground[x][y].type=BOX
+          
             self.playground[x][y].demolish()
             if x>0:
                 self.playground[x-1][y].demolish()

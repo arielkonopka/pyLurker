@@ -69,7 +69,8 @@ class lvlManger():
                     board.MAGNET:['a'], # we fix the direction with corrections, if necessary, default is 0 which is left
                     board.TANK:['}'],   # we fix the directions with corrections, if necessary, default is 0 which is left
                     board.TURRET:['>'], # we fix the direction with the corrections, if necessary, default is 0 which is left
-                    board.TELEPORT:['T','t','1','2','3','4','5','6','7','8','9','0']
+                    board.TELEPORT:['T','t','1','2','3','4','5','6','7','8','9','0'],
+                    board.SOFTWALL:[',','.']
         }
         for eClass in translator:
             subtype=0

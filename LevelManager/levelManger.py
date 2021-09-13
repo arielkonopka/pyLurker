@@ -2,7 +2,7 @@ import json
 import os
 import sys
 from Board import board
-
+import math
 
 class lvlManger():
     filename=''
@@ -59,7 +59,7 @@ class lvlManger():
         translator={board.PLAYER:['@'],
                     board.MONSTER:['M','m','N','n'],
                     board.WALL:['#','%','W','w'],
-                    board.BOX:['*','<'],
+                    board.BOX:['*','ó'],
                     board.AMMO:['!'],
                     board.BOMB:['~','`'],
                     board.KEY:['&','+'],
@@ -68,7 +68,7 @@ class lvlManger():
                     board.EXIT:['X'],
                     board.MAGNET:['a'], # we fix the direction with corrections, if necessary, default is 0 which is left
                     board.TANK:['}'],   # we fix the directions with corrections, if necessary, default is 0 which is left
-                    board.TURRET:['>'], # we fix the direction with the corrections, if necessary, default is 0 which is left
+                    board.TURRET:['<','^','>','v'], # we fix the direction with the corrections, if necessary, default is 0 which is left
                     board.TELEPORT:['T','t','1','2','3','4','5','6','7','8','9','0'],
                     board.SOFTWALL:[',','.']
         }
@@ -82,15 +82,8 @@ class lvlManger():
         
 
     def applyCorrections(self,element,level,position):
-        corrections=level['LevelObjectCorrections']
-        if corrections==None:
-            return element
-        for cor in corrections:
-            if position[0]==cor[0] and position[1]==cor[1]:
-                element[1]=cor[2]
-                element[2]=cor[3]
-                element[3]=cor[4]
-                break
+        if element[0]==board.TURRET:
+            element=(element[0],element[2] % 4,math.floor(element[2]/4),element[3])
         return element
 
 

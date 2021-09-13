@@ -1,5 +1,6 @@
 from LevelManager import *
 import random
+import math
 '''
 This file contains two classes and handfull of constant values.
 The classes are related to the game play board and are:
@@ -16,7 +17,7 @@ The classes are related to the game play board and are:
 
 
 EMPTYELEMENT = 0
-PLAYER = -1
+PLAYER = 666
 WALL = 1
 BOX = 10
 
@@ -378,7 +379,7 @@ class boardMember():
     def missile(self):
         self.movable=True
         self.destructable=True
-        self.killable=True
+        self.killable=False
         self.steppingOn=boardMember(EMPTYELEMENT)
     #now magnet is like a wall, cannot be destroyed and so on
     def magnet(self):
@@ -390,8 +391,10 @@ class boardMember():
         self.movable=True
         self.steppingOn=boardMember(EMPTYELEMENT)
     def turret(self):
+        self.shootingSpeed=random.randint(10,40)
         self.canShoot=True
         self.destructable =True
+        self.canCollect=True
         self.steppingOn=boardMember(EMPTYELEMENT)
 
     def monster(self):
@@ -455,11 +458,13 @@ class board():
     sizeY =0
     exitAchived=False
     exitReady=False
+    smellCnt=0
 
     def __init__(self ,size):
         self.playground =[[boardMember() for i in range(0 ,size[1])] for j in range(0 ,size[0])]
         #the smells matrix, objects are tuples with type and strength of the smell
         self.smell=[[(0,0) for i in range(0 ,size[1])] for j in range(0 ,size[0])]
+        self.smellBis=[[(0,0) for i in range(0 ,size[1])] for j in range(0 ,size[0])]
         self.sizeY =size[1]
         self.sizeX =size[0]
         for x in range(0,size[0]):
@@ -497,18 +502,21 @@ class board():
                   MONSTER:self.monster,
                   MISSILE:self.missile,
                   EXIT:self.exit,
-                  BOX:self.box
+                  BOX:self.box,
+                  TURRET:self.turret
                 
                  }
    
         # smell degrading, we want the smell of the objects to degrade with time
+        self.smellCnt=(self.smellCnt+1 )% 50
         for x in range(0 ,self.sizeX):
             for y in range(0 ,self.sizeY):
+                if self.smellCnt==0:
+                    av=self.countAvgSmell(x,y)
+                    self.smellBis[x][y]=av
                 # decrease the smell of objects. Do not worry, the objects that smell will create new signal
                 # therefore the old signal will fade away automagically
-                if self.smell[x][y][1]>1:
-                    self.smell[x][y]=(self.smell[x][y][0],self.smell[x][y][1]-1)
-                elif self.smell[x][y][1]==1:
+                if self.smell[x][y][1]<=10:
                     self.smell[x][y]=(0,0)
                 # if the object recently moved, is in or out porting or dying, we do not move it again for a while
                 if self.playground[x][y].steppingOn!=None and self.playground[x][y].steppingOn.type!=EMPTYELEMENT:
@@ -519,8 +527,47 @@ class board():
                     elementMech =switch.get(self.playground[x][y].type)
                     if elementMech:
                         elementMech(x, y,command,False)
-        #take care of all these counters
+        if self.smellCnt==0:                    
+            self.smell,self.smellBis=self.smellBis,self.smell
 
+        #take care of all these counters
+    def countAvgSmell(self,x,y):
+        cnt:int=1 # magic number found with trial and error
+        if not self.playground[x][y].steppable:
+            return self.smell[x][y]
+        sum:int=self.smell[x][y][1]
+        if x>0:
+            if self.playground[x-1][y].steppable or self.playground[x-1][y].movable: 
+                if self.smell[x][y][0]==0:
+                    self.smell[x][y]=(self.smell[x-1][y][0],0)
+                if self.smell[x][y][0]==self.smell[x-1][y][0]:
+                    sum=sum+self.smell[x-1][y][1]
+                    cnt+=1
+        if y>0:
+            if self.playground[x][y-1].steppable or self.playground[x][y-1].movable: 
+                if self.smell[x][y][0]==0:
+                    self.smell[x][y]=(self.smell[x][y-1][0],0)
+                if self.smell[x][y][0]==self.smell[x][y-1][0]:
+                    sum=sum+self.smell[x][y-1][1]
+                    cnt+=1
+        if x<self.sizeX-1:
+            if self.playground[x+1][y].steppable or self.playground[x+1][y].movable: 
+                if self.smell[x][y][0]==0:
+                    self.smell[x][y]=(self.smell[x+1][y][0],0)
+                if self.smell[x][y][0]==self.smell[x+1][y][0]:
+                    sum=sum+self.smell[x+1][y][1]
+                    cnt+=1
+        if y<self.sizeY-1:
+            if self.playground[x][y+1].steppable or self.playground[x][y+1].movable:
+                if self.smell[x][y][0]==0:
+                    self.smell[x][y]=(self.smell[x][y+1][0],0)
+                if self.smell[x][y][0]==self.smell[x][y+1][0]: 
+                    sum=sum+self.smell[x][y+1][1]
+                    cnt+=1
+        #print("{}/{} ".format(sum,cnt),end="")
+        if sum>=10:
+            sum=sum-10
+        return (self.smell[x][y][0],math.floor(sum/cnt))
         
     def findNeighboors(self,x,y,result=None,theType=None ):
         """
@@ -727,13 +774,13 @@ class board():
 
 #we do it in a function, so it would be easier to perform changes for other shooting objects
     def shootFromObject(self,x,y,cmdTuple):
-        if self.playground[x][y].shooting!=0:
-            return 
-        self.playground[x][y].shoting=25
+        if self.playground[x][y].shooting>0:
+            return False
+        self.playground[x][y].shoting=70
         if self.checkAmmo(x,y)==True:
             self.takeOneAmmo(x,y)
         else:
-            return    
+            return  False 
         direction=cmdTuple[0]        
         if direction==_UP and y>0:
             if self.playground[x][y-1].steppable==True:
@@ -760,7 +807,7 @@ class board():
                 self.createOverObject(x+1,y,MISSILE,_RIGHT)
             elif self.playground[x+1][y].killable==True:
                 self.playground[x+1][y].kill()    
-            
+        return True   
 
 
     def checkKeys(self,x,y,type=0):
@@ -825,7 +872,7 @@ class board():
                 self.collect((targetX,targetY),(x,y))
                 self.exitAchived=True
                 return True
-            elif (targetXX!=x or targetYY!=y) and self.playground[targetX][targetY].movable==True and self.playground[targetXX][targetYY].steppable==True and self.playground[x][y].canPushObjects==True:
+            elif (targetXX!=x or targetYY!=y) and self.playground[targetX][targetY].movable==True and self.playground[targetXX][targetYY].steppable==True and self.playground[x][y].canPushObjects==True and self.playground[targetX][targetY].canKill==False and self.playground[targetX][targetY].type!=MISSILE:
             #    print("pusz")
                 self.pushObject((x,y),(targetX,targetY),(targetXX,targetYY),direction)
                 return True
@@ -986,6 +1033,21 @@ class board():
 
 # here we got the methods for board mechanics
 # every method will control different object type
+    def turret(self,x,y,cmd,stpd=False):
+        if stpd:
+            return False
+        if self.playground[x][y].shooting>0 or self.playground[x][y].moved>0:
+            return False
+        if random.randint(0,100)>50:
+            if not self.shootFromObject(x,y,(self.playground[x][y].direction,0)):
+                ammo=boardMember(AMMO)
+                self.playground[x][y].collect(ammo)
+        self.playground[x][y].shooting=self.playground[x][y].shootingSpeed # every turret has its own random speed of shooting
+
+
+
+
+
     def exit(self,x,y,cmd,stpd=False):
         if stpd:
             return False
@@ -1028,10 +1090,8 @@ class board():
                     if ob.killed==0:
                         ob.kill()
                         #ob.demolish()
-
-        
         else:
-            self.playground[x][y].animSpeed=3
+            self.playground[x][y].animSpeed=5
         objFound=None
         for ny in range(y-1,-1,-1):
             if self.playground[x][ny].steppable:
@@ -1060,8 +1120,8 @@ class board():
                     if ob.killed==0:
                         ob.kill()
                         #ob.demolish()
-        else:
-            self.playground[x][y].animSpeed=3
+        elif not closedLeft:
+            self.playground[x][y].animSpeed=5
             #self.playground[bFound[0]][bFound[1]].animSpeed=3
         
         
@@ -1109,7 +1169,8 @@ class board():
             self.playground[targetX][targetY].kill()
             self.playground[targetX][targetY].kill()
         else:
-            self.playground[x][y].demolish()
+            self.playground[x][y].demolish(6)
+            self.playground[x][y].animSpeed=2
             #we kill the messile, if it cannot move any further
         
 

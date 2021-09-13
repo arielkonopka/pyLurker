@@ -20,12 +20,8 @@ changedBoxes=myPlayground.getChangedBoxes() #this will return all changed boxes
 #print(changedBoxes)
 
 
-
-
-
-
-scrHandle:pygame.surface.Surface= gfxDrv.screenInit([1620, 780])
-vh=gfxDrv.videoManager(scrHandle,SM,myPlayground)
+scrHandle:pygame.surface.Surface= gfxDrv.screenInit([1920, 1080])
+vh=gfxDrv.videoManager(scrHandle,SM,myPlayground,(10,10),(60,30))
 
 
 
@@ -38,7 +34,7 @@ pos=(40,40)
 direction=board._LEFT
 level=0
 lives=5 #lives implemented
-print(LM.getLevelsNo()-1)
+#print(LM.getLevelsNo()-1)
 while 1:
     cmd=myInput.getInput(layers)
     scrHandle.fill([40, 20, 80])

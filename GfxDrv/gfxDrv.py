@@ -74,6 +74,7 @@ class videoManager:
         self.exploding=skinMngr.getObj('elementExplode')
         self.remains=skinMngr.getObj('remains')
         self.softWall=skinMngr.getObj('softWall')
+        self.turret=skinMngr.getObj('turret')
         #load the texture file first
         self.__iconsTexture=pygame.image.load(textureFile)
         #set up the texture parameters
@@ -115,7 +116,8 @@ class videoManager:
             board.EXIT:self.drawExit,
             board.TELEPORT:self.drawTeleport,
             board.REMAINS:self.drawRemains,
-            board.SOFTWALL:self.drawSoftWall
+            board.SOFTWALL:self.drawSoftWall,
+            board.TURRET:self.drawTurret
             }
 #        if objectType[0]!=board.EMPTYELEMENT and self.playground!=None:
 #            bg=  switcher.get(self.playground[position[0]][position[1]].steppingOn.Type)  
@@ -123,8 +125,8 @@ class videoManager:
         rect=(position[0],position[1],32,32)
         
 
-        if smell[1]>0:
-            pygame.draw.rect(self.__srcHndl,(smell[1],smell[1],smell[1]),rect)
+      #  if smell[1]>0:
+      #      pygame.draw.rect(self.__srcHndl,(smell[1],smell[1],smell[1]),rect)
         
         # ok, object is stepping on other object, that is not an empty field? Draw it
         if bElement.steppingOn!=None and bElement.steppingOn.type!=board.EMPTYELEMENT:
@@ -187,7 +189,8 @@ class videoManager:
     
 
 
-
+    def drawTurret(self,position,bElement,subObj):
+        self.drawBasicElement(position,bElement,self.turret,subObj)
     def drawTeleport(self,position,bElement,subObj):
         self.drawBasicElement(position,bElement,self.teleport,subObj)
     def drawRemains(self,position,bElement,subObj):

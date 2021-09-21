@@ -717,9 +717,12 @@ class board():
             self.playground[x][y].inPorting=_PortingTime
             return False 
         neigh=self.findNeighboors(nextTel[0],nextTel[1],None,EMPTYELEMENT)
-        choice=random.randint(1,len(neigh)-1)
-        self.performTeleport(x,y,neigh[choice][0],neigh[choice][1])
-            
+        if neigh:
+            choice=random.randint(1,len(neigh)-1)
+            self.performTeleport(x,y,neigh[choice][0],neigh[choice][1])
+        else:
+            self.playground[x][y].inPorting=_PortingTime
+            return False
 
 
 #collect an object

@@ -46,7 +46,7 @@ while 1:
     myPlayground.iterateMech(cmd)
     changedBoxes=myPlayground.getChangedBoxes()
     stats=myPlayground.getStats()
-    #res[1].send([changedBoxes,stats,level])    
+#    res[1].send([changedBoxes,stats,level])    
 
     if stats[4]<=0:
         if myPlayground.exitAchived==True: 
@@ -64,7 +64,7 @@ while 1:
     vh.drawStats(stats)
     pygame.display.flip()
     #pygame.display.flip()
-    time.sleep(1 / 40)
+    time.sleep(1 / 20)
     statecnt-=1
     
 

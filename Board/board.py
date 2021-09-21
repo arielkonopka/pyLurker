@@ -117,7 +117,7 @@ class boardMember():
     __cntA=0
     __cntB=0
     __cntC=5
-    animSpeed=4
+    animSpeed=2
     # constructor for the board member class
     # depending on the type, there will be different routing called to initialize all the parameters
 
@@ -147,6 +147,7 @@ class boardMember():
         self.type = type
         self.subType = subType
         self.direction = direction
+        self.active=True
         self.rotatable = rotatable
         self.changed=True
         self.canTeleport=False
@@ -512,8 +513,8 @@ class board():
         for x in range(0 ,self.sizeX):
             for y in range(0 ,self.sizeY):
                 if self.smellCnt==0:
-                    av=self.countAvgSmell(x,y)
-                    self.smellBis[x][y]=av
+           #         av=self.countAvgSmell(x,y)
+                    self.smellBis[x][y]=(self.smell[x][y][0],self.smell[x][y][1]-1)
                 # decrease the smell of objects. Do not worry, the objects that smell will create new signal
                 # therefore the old signal will fade away automagically
                 if self.smell[x][y][1]<=10:
@@ -729,7 +730,7 @@ class board():
         self.playground[toPos[0]][toPos[1]]=ob
 
 #I should create a method step on, but here it would make things a bit weird
-    def moveObj(self,posFrom,posTo,direction,speed=3):
+    def moveObj(self,posFrom,posTo,direction,speed=2):
             self.playground[posFrom[0]][posFrom[1]],self.playground[posTo[0]][posTo[1]],self.playground[posTo[0]][posTo[1]].steppingOn=self.playground[posFrom[0]][posFrom[1]].steppingOn,self.playground[posFrom[0]][posFrom[1]],self.playground[posTo[0]][posTo[1]] 
             # This is an equivalent of same thing done in the restoreElement method, we could use it here, but we will not
             if self.playground[posTo[0]][posTo[1]]==None:
@@ -741,7 +742,8 @@ class board():
             self.playground[posTo[0]][posTo[1]].changed=True
             self.playground[posFrom[0]][posFrom[1]].changed=True
             self.playground[posTo[0]][posTo[1]].direction=direction
-            self.playground[posTo[0]][posTo[1]].animPhase=(self.playground[posTo[0]][posTo[1]].animPhase+1) % 65535
+            if self.playground[posTo[0]][posTo[1]].type==PLAYER:
+                self.playground[posTo[0]][posTo[1]].animPhase=(self.playground[posTo[0]][posTo[1]].animPhase+1) % 65535
 
     def pushObject(self,posFrom,posTo,posTo2,direction):
 
@@ -810,10 +812,10 @@ class board():
         return True   
 
 
-    def checkKeys(self,x,y,type=0):
+    def checkKeys(self,x,y,type_=0):
         if self.playground[x][y].objCollection:
             for obj in self.playground[x][y].objCollection:
-                if obj.type==KEY and obj.subType==type:
+                if obj.type==KEY and obj.subType==type_:
                     return True
     
     def openDoor(self,x,y,x1,y1):
@@ -849,7 +851,7 @@ class board():
             targetY=y-1
             if y>1:
                 targetYY=y-2
-        if direction==_DOWN and y<self.sizeY:
+        if direction==_DOWN and y<self.sizeY-1:
             targetY=y+1
             if y<self.sizeY-1:
                 targetYY=y+2    
@@ -857,11 +859,12 @@ class board():
             targetX=x-1
             if x>1:
                 targetXX=x-2
-        if direction==_RIGHT and x<self.sizeX:
+        if direction==_RIGHT and x<self.sizeX-1:
             targetX=x+1
             if x<self.sizeX-1:
                 targetXX=x+2
         if targetX!=x or targetY!=y:
+           # print("tx{} ty{}".format(targetX,targetY))
             if self.playground[targetX][targetY].steppable==True:
                 self.moveObj((x,y),(targetX,targetY),direction)
                 return True
@@ -1196,21 +1199,16 @@ class board():
             if n[2].canKill==True:
                 self.playground[x][y].kill()
                 return
-        if not cmd_:
+        if not (self.playground[x][y].active and cmd_):
             return
-        if not cmd_[self.playground[x][y].playerNo]:
-            return
-        cmdTupple=cmd_[self.playground[x][y].playerNo]        
-        cmd=cmdTupple[0]
-#        print("{} -> {}".format(cmd,self.playground[x][y].playerNo))
-        if cmdTupple[1]>0 and self.playground[x][y].playerNo +1>0:
+        if cmd_[1]>0:
             if self.playground[x][y].shooting==0:
-                self.shootFromObject(x,y,cmdTupple)
-                self.playground[x][y].shooting=15
-                self.playground[x][y].moved=5
+                self.shootFromObject(x,y,cmd_)
+                self.playground[x][y].shooting=12
+                self.playground[x][y].moved=2
             return
 
-        self.walkObjectDirection(x,y,cmd)
+        self.walkObjectDirection(x,y,cmd_[0])
 
     def bomb(self, x, y,cmd,stpd=False):
         if stpd:

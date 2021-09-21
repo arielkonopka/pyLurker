@@ -18,6 +18,7 @@ class iHandler():
         exCmdLeft=None
         exCmdRight=None
         for event in pygame.event.get():
+    
             if event.type == pygame.QUIT or (self.keyDown and self.keyCode == pygame.K_ESCAPE):
                 pygame.quit()
                 sys.exit()
@@ -33,36 +34,35 @@ class iHandler():
                         break
         if self.__keysPressed:            
             for event in self.__keysPressed:
+                mod=0
                 if event.key==pygame.K_ESCAPE:
                     pygame.quit()
                     sys.exit()
                     exCMD=board._EXIT
                     break
+       #         pygame.K_LCTRL
               #  print("{} -> {}".format(event.key, event.mod & 1 ))
-                
-                if event.key==pygame.K_UP:
-                    exCmdLeft=(board._UP,event.mod) 
+                if event.key==pygame.K_LCTRL or event.key==pygame.K_RCTRL or (event.mod & (pygame.KMOD_CTRL | pygame.KMOD_LCTRL)):
+                    mod=1
+                if event.key==pygame.K_UP or event.key==pygame.K_w:
+                    exCmdLeft=(board._UP,mod) 
                     continue
-                elif event.key==pygame.K_DOWN:
-                    exCmdLeft=(board._DOWN,event.mod)
+                elif event.key==pygame.K_DOWN or event.key==pygame.K_s:
+                    exCmdLeft=(board._DOWN,mod)
                     continue
-                elif event.key==pygame.K_LEFT:
-                    exCmdLeft=(board._LEFT,event.mod)
+                elif event.key==pygame.K_LEFT or event.key==pygame.K_a:
+                    exCmdLeft=(board._LEFT,mod)
                     continue
-                elif event.key==pygame.K_RIGHT:
-                    exCmdLeft=(board._RIGHT,event.mod)
-                elif event.key==pygame.K_a:
-                    exCmdRight=(board._LEFT,event.mod)
-                    continue
-                elif event.key==pygame.K_d:
-                    exCmdRight=(board._RIGHT,event.mod)
-                    continue
-                elif event.key==pygame.K_w:
-                    exCmdRight=(board._UP,event.mod)
-                    continue
-                elif event.key==pygame.K_s:
-                    exCmdRight=(board._DOWN,event.mod)
+                elif event.key==pygame.K_RIGHT or event.key==pygame.K_d:
+                    exCmdLeft=(board._RIGHT,mod)
 
-        return (exCmdLeft,exCmdRight)
+        return exCmdLeft
 
 
+if __name__=='__main__':
+    ex=False
+    pygame.init()
+    screen = pygame.display.set_mode((1024,768), pygame.FULLSCREEN, 8)
+    while not ex:
+        for event in pygame.event.get():    
+            print("{} {} {}".format(event.type, event.type, event.type))

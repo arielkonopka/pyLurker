@@ -3,6 +3,7 @@ import random
 import sys
 import time
 import pygame
+from multiprocessing import Process, Queue, Pipe
 import json
 from pygame import FULLSCREEN
 from pygame import surface
@@ -10,7 +11,8 @@ from Board import board
 from pygame import draw
 from pygame import font
 from Board import board as board
-
+from LevelManager import levelManger
+import math
 class skinManager:
     fname=None
     skinObject=None
@@ -49,8 +51,14 @@ class skinManager:
 
 class videoManager:
     animatedObject=[[[(0,0)]]]
-
-    def __init__(self,scrHndl:pygame.surface.Surface,skinMngr,playground,BoardPosOnScreen=(10,30),BoardSize=(60,20)):
+    resX:int=None
+    resY:int=None
+    def __init__(self,skinMngr,playground,screenSize,levelManager=None):
+        pygame.init()
+ 
+        self.resX:int=None
+        self.resY:int=None
+        self.viewPort=(0,0)
         spriteSize=skinMngr.spriteSize
         interlace=skinMngr.interlace
         textureFile=skinMngr.textureFile
@@ -76,20 +84,32 @@ class videoManager:
         self.softWall=skinMngr.getObj('softWall')
         self.turret=skinMngr.getObj('turret')
         #load the texture file first
-        self.__iconsTexture=pygame.image.load(textureFile)
+
         #set up the texture parameters
         self.__iconWidth=spriteSize[0]
         self.__IconHeight=spriteSize[1]
         self.interlace=interlace
-        self.__boardPos=BoardPosOnScreen
-        self.__BoardSize=(BoardSize[0]*self.__iconWidth,BoardSize[1]*self.__IconHeight)
-        self.__boardSizeElements=BoardSize
+        self.levelManager=levelManager
+        self.hvpx:int=0
+        self.hvpy:int=0
+        self.__BoardSize=None
+        self.__boardSizeElements=None
         #this is our screen surface
-        self.__srcHndl:pygame.surface.Surface=scrHndl  
+
         self.__viewUpperCorner=(0,0)
+        videoManager.resX:int=screenSize[0]
+        videoManager.resY:int=screenSize[1]
+        self.viewPortSizeX:int=math.floor(videoManager.resX/self.__iconWidth)-5
+        self.viewPortSizeY:int=math.floor(videoManager.resY/self.__IconHeight)-6
+        self.__BoardSize=(videoManager.resX,videoManager.resY)
+        self.hvpx:int=self.viewPortSizeX/2
+        self.hvpy:int=self.viewPortSizeY/2
+ #   screen = pygame.display.set_mode(scrSize, FULLSCREEN, 8)
+        self.__srcHndl:pygame.surface.Surface = pygame.display.set_mode(screenSize,0,8)
+        self.__srcHndl.set_alpha(128)
         pygame.font.init()
         self.__font=pygame.font.SysFont("Courier",40)
-
+        self.__iconsTexture=pygame.image.load(textureFile).convert()
 
 
     
@@ -101,6 +121,8 @@ class videoManager:
         if not bElement:
          #   print('no')
             return
+#        if not bElement.changed:
+#            return
         switcher={
             board.EMPTYELEMENT:self.drawEmpty,
             board.PLAYER:self.drawPlayer,
@@ -234,45 +256,71 @@ class videoManager:
         self.drawBasicElement(position,bElement,self.softWall,subObj)
 
 
-    def renderObjects(self,objlist):
-        vUX:int=self.__viewUpperCorner[0]
-        vUY:int=self.__viewUpperCorner[1]
-        bSX:int=self.__boardSizeElements[0]
-        bSY:int=self.__boardSizeElements[1]
-        bPX:int=self.__boardPos[0]
-        bPY:int=self.__boardPos[1]
+    def renderObjects(self,objlist,level):
+        self.__boardSizeElements=(self.levelManager.getLevel(level)['Width'],self.levelManager.getLevel(level)['Height'])
+        self.__srcHndl.fill(self.levelManager.getLevel(level)['Colour'])
+        if not self.viewPort:
+            self.viewPort=(0,0)
+        for obj in objlist:
+            if obj[2].type==board.PLAYER and obj[2].active==True:
+                vux:int=obj[0]-self.hvpx
+                vuy:int=obj[1]-self.hvpy
+                if vux<0:
+                    vux=0
+                if vuy<0:
+                    vuy=0
+                if vux+self.hvpx>self.__boardSizeElements[0]:
+                    vux=self.__boardSizeElements[0]-self.hvpx
+                if vuy+self.hvpy>self.__boardSizeElements[1]:
+                    vuy=self.__boardSizeElements[1]-self.hvpy
+                self.viewPort=(math.floor(vux),math.floor(vuy))    
+                break
         for obj in objlist:
             if not obj:
                 continue
             x:int=obj[0]
             y:int=obj[1]
-            if x<=bSX+vUX  and x>=vUX  and y<=vUY+bSY and y>=vUY:
-                posx=(x-vUX)*self.__iconWidth+bPX
-                posy=(y-vUY)*self.__IconHeight+bPY
-                elem=obj[2]
-                smell=obj[3]
+            posx:int=math.floor((x-self.viewPort[0]+2)*self.__iconWidth)
+            posy:int=math.floor((2+y-self.viewPort[1])*self.__IconHeight)
+            elem=obj[2]
+            smell=obj[3]
+            if x>=self.viewPort[0] and y >=self.viewPort[1] and x<=self.viewPort[0]+self.viewPortSizeX and y<=self.viewPort[1]+self.viewPortSizeY:    
+           # if posx<=videoManager.resX and posy<=videoManager.resY:
                 self.drawObjectOnScreen((posx,posy),elem,smell)
- 
-               # print((posx,posy),(obj[2],obj[3],obj[4]))
-               #(x,y,elem.type,elem.direction,elem.animPhase,elem.subType,self.smell[x][y])
-#                self.drawObjectOnScreen((posx,posy),(obj[2],obj[3],obj[4],obj[5],obj[6],obj[7],obj[8],obj[9]))
+
+    
+
+            
 
 
     def drawStats(self,stats):
    #     print(self.__BoardSize[1]+self.__boardPos[1]+32)
-        sf=self.__font.render("Keys: {}  Ammo: {} Tokens: {} Tokens remaining: {}".format(stats[0],stats[1],stats[2],stats[3]), None, (200,200,200))
-        self.__srcHndl.blit(sf,(200,self.__BoardSize[1]+self.__boardPos[1]))
+       
+        sf=self.__font.render("K: {}  A: {} T: {} AT: {}".format(stats[0],stats[1],stats[2],stats[3]), None, (200,200,200))
+        self.__srcHndl.blit(sf,(10,videoManager.resY-40))
         pass
 
 
+    def startProcess(self,vh):
+        parent_conn, child_conn = Pipe()
+        p = Process(target=drawLoop, args=(vh,parent_conn))
+        return (p,child_conn)
 
 
-def screenInit(scrSize):
-    pygame.init()
- #   screen = pygame.display.set_mode(scrSize, FULLSCREEN, 8)
-    screen = pygame.display.set_mode(scrSize)
-  
-    return screen
+
+
+def drawLoop(vh,q1):
+
+    while True:
+        chb=q1.recv()
+        print(chb)
+        vh.renderObjects(changedBoxes,level)
+        vh.drawStats(stats)
+        pygame.display.flip()
+        time.sleep(1 / 40)
+
+
+
 
 def standalone():
     print("This is a pyRobbo gfx driver, and should not be used as a standalone application, sorry.")
